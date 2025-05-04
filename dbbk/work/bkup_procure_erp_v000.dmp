@@ -1,0 +1,643 @@
+--
+-- PostgreSQL database dump
+--
+
+-- Dumped from database version 17rc1
+-- Dumped by pg_dump version 17rc1
+
+-- Started on 2025-04-30 00:07:48
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- TOC entry 6 (class 2615 OID 19569)
+-- Name: v000; Type: SCHEMA; Schema: -; Owner: postgres
+--
+
+CREATE SCHEMA v000;
+
+
+ALTER SCHEMA v000 OWNER TO postgres;
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- TOC entry 220 (class 1259 OID 20742)
+-- Name: _prisma_migrations; Type: TABLE; Schema: v000; Owner: postgres
+--
+
+CREATE TABLE v000._prisma_migrations (
+    id character varying(36) NOT NULL,
+    checksum character varying(64) NOT NULL,
+    finished_at timestamp with time zone,
+    migration_name character varying(255) NOT NULL,
+    logs text,
+    rolled_back_at timestamp with time zone,
+    started_at timestamp with time zone DEFAULT now() NOT NULL,
+    applied_steps_count integer DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE v000._prisma_migrations OWNER TO postgres;
+
+--
+-- TOC entry 224 (class 1259 OID 20774)
+-- Name: department_versions; Type: TABLE; Schema: v000; Owner: postgres
+--
+
+CREATE TABLE v000.department_versions (
+    department_version_id uuid NOT NULL,
+    department_id uuid NOT NULL,
+    tenant_id uuid NOT NULL,
+    org_history_id uuid,
+    valid_from timestamp(3) without time zone NOT NULL,
+    valid_to timestamp(3) without time zone,
+    department_name character varying(30) NOT NULL,
+    department_short_name character varying(15) NOT NULL,
+    department_kana_name character varying(30) NOT NULL,
+    department_level integer NOT NULL,
+    department_symbol character varying(3) NOT NULL,
+    parent_department_id uuid,
+    budget_target_flg character varying(1) NOT NULL,
+    prefectures character varying(20),
+    municipality character varying(20),
+    place_name character varying(20),
+    bldg_name character varying(20),
+    phone character varying(20),
+    fax character varying(20),
+    version_created_at timestamp(3) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    version_created_by_id uuid
+);
+
+
+ALTER TABLE v000.department_versions OWNER TO postgres;
+
+--
+-- TOC entry 223 (class 1259 OID 20768)
+-- Name: departments; Type: TABLE; Schema: v000; Owner: postgres
+--
+
+CREATE TABLE v000.departments (
+    department_id uuid NOT NULL,
+    tenant_id uuid NOT NULL,
+    department_cd character varying(10) NOT NULL,
+    created_at timestamp(3) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by_id uuid
+);
+
+
+ALTER TABLE v000.departments OWNER TO postgres;
+
+--
+-- TOC entry 221 (class 1259 OID 20751)
+-- Name: emp_account; Type: TABLE; Schema: v000; Owner: postgres
+--
+
+CREATE TABLE v000.emp_account (
+    emp_account_cd character varying(20) NOT NULL,
+    emp_name character varying(15) NOT NULL,
+    emp_kana_name character varying(15) NOT NULL,
+    email character varying(50),
+    password_hash character varying(255) NOT NULL,
+    role character varying(20) NOT NULL,
+    valid_flg character varying(1) NOT NULL,
+    last_login timestamp(3) without time zone,
+    created_at timestamp(3) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by_id uuid,
+    updated_at timestamp(3) without time zone NOT NULL,
+    updated_by_id uuid,
+    emp_account_id uuid NOT NULL,
+    tenant_id uuid NOT NULL
+);
+
+
+ALTER TABLE v000.emp_account OWNER TO postgres;
+
+--
+-- TOC entry 225 (class 1259 OID 20780)
+-- Name: employee_departments; Type: TABLE; Schema: v000; Owner: postgres
+--
+
+CREATE TABLE v000.employee_departments (
+    employee_department_id uuid NOT NULL,
+    emp_account_id uuid NOT NULL,
+    department_id uuid NOT NULL,
+    tenant_id uuid NOT NULL,
+    valid_from timestamp(3) without time zone NOT NULL,
+    valid_to timestamp(3) without time zone,
+    valid_flg character varying(1) NOT NULL,
+    assignment_created_at timestamp(3) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    assignment_created_by_id uuid
+);
+
+
+ALTER TABLE v000.employee_departments OWNER TO postgres;
+
+--
+-- TOC entry 222 (class 1259 OID 20762)
+-- Name: org_history; Type: TABLE; Schema: v000; Owner: postgres
+--
+
+CREATE TABLE v000.org_history (
+    org_history_id uuid NOT NULL,
+    tenant_id uuid NOT NULL,
+    org_history_cd character varying(20),
+    valid_from timestamp(3) without time zone NOT NULL,
+    valid_to timestamp(3) without time zone,
+    org_change_name character varying(20) NOT NULL,
+    created_at timestamp(3) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by_id uuid,
+    updated_at timestamp(3) without time zone NOT NULL,
+    updated_by_id uuid
+);
+
+
+ALTER TABLE v000.org_history OWNER TO postgres;
+
+--
+-- TOC entry 226 (class 1259 OID 20868)
+-- Name: organizations; Type: TABLE; Schema: v000; Owner: postgres
+--
+
+CREATE TABLE v000.organizations (
+    id uuid NOT NULL,
+    name character varying(100) NOT NULL,
+    code character varying(50) NOT NULL,
+    address character varying(255) NOT NULL,
+    phone character varying(20) NOT NULL,
+    email character varying(100) NOT NULL,
+    website character varying(255),
+    description text,
+    status character varying(20) NOT NULL,
+    created_at timestamp(3) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp(3) without time zone NOT NULL,
+    currency character varying(10) NOT NULL,
+    language character varying(10) NOT NULL,
+    timezone character varying(50) NOT NULL
+);
+
+
+ALTER TABLE v000.organizations OWNER TO postgres;
+
+--
+-- TOC entry 4927 (class 0 OID 20742)
+-- Dependencies: 220
+-- Data for Name: _prisma_migrations; Type: TABLE DATA; Schema: v000; Owner: postgres
+--
+
+COPY v000._prisma_migrations (id, checksum, finished_at, migration_name, logs, rolled_back_at, started_at, applied_steps_count) FROM stdin;
+50dc4af9-6f64-4006-984a-2b73d90a8d9d	9963f2b010eff5dfedad140d4742ac60e1afc62bdd2e2f0cb0e845060b56e108	2025-04-16 09:35:14.381992+09	20250413140228_init	\N	\N	2025-04-16 09:35:14.37225+09	1
+4c14d58d-8641-423e-b5ba-ff96b5088f1f	4d1acd42ebce7b6e900a89905124f4a1994848360a4a6daace5833121c205dc4	2025-04-16 09:35:14.461617+09	20250416000658_init_organization_schema	\N	\N	2025-04-16 09:35:14.382719+09	1
+ad2dc5b6-b770-401b-a2ac-a8926c595844	122d743a0403e77ad7e0ed9447f5b8826f2fbdbc55612d936eff004dd13c2eec	2025-04-16 09:35:14.465955+09	20250416000711_init_organization_schema	\N	\N	2025-04-16 09:35:14.462801+09	1
+047a6b14-9aed-4688-bdf6-e8ac802a2740	122d743a0403e77ad7e0ed9447f5b8826f2fbdbc55612d936eff004dd13c2eec	2025-04-16 09:35:14.468964+09	20250416000741_init_organization_schema	\N	\N	2025-04-16 09:35:14.466765+09	1
+298f52cb-db6c-4fdd-aa7d-cb6159591808	036bd7e0e23d0a8fcf3d3f3e561fcb61629b813bab69843019382a8b24dacf9f	2025-04-16 09:35:14.47735+09	20250416001744_add_organization_model	\N	\N	2025-04-16 09:35:14.469618+09	1
+c8ee8c27-1e47-4a3f-9121-7a465f021b76	9d90f9a357d02e9d218807e944fb48af7f78def27718ee4d1474aa94ca789f80	2025-04-16 09:35:17.241421+09	20250416003515_update_organization_settings	\N	\N	2025-04-16 09:35:17.234581+09	1
+\.
+
+
+--
+-- TOC entry 4931 (class 0 OID 20774)
+-- Dependencies: 224
+-- Data for Name: department_versions; Type: TABLE DATA; Schema: v000; Owner: postgres
+--
+
+COPY v000.department_versions (department_version_id, department_id, tenant_id, org_history_id, valid_from, valid_to, department_name, department_short_name, department_kana_name, department_level, department_symbol, parent_department_id, budget_target_flg, prefectures, municipality, place_name, bldg_name, phone, fax, version_created_at, version_created_by_id) FROM stdin;
+6997dc24-04cc-4e1f-b108-3794ac712303	949ec500-084f-4411-9e8e-c5e86497e961	734dd7d9-85fc-4382-a1c2-743f8f6d000a	b85db476-bdff-4001-b141-be261cc50d82	2025-04-16 00:35:26.643	\N	営業部	営業	エイギョウブ	1	S	\N	1	\N	\N	\N	\N	\N	\N	2025-04-16 00:35:26.644	\N
+7b36ee83-a962-4bd1-863e-e3b4cd7599da	e10fed10-ee4d-4c57-8425-f0f362689983	734dd7d9-85fc-4382-a1c2-743f8f6d000a	b85db476-bdff-4001-b141-be261cc50d82	2025-04-16 00:35:26.652	\N	開発部	開発	カイハツブ	1	D	\N	1	\N	\N	\N	\N	\N	\N	2025-04-16 00:35:26.653	\N
+\.
+
+
+--
+-- TOC entry 4930 (class 0 OID 20768)
+-- Dependencies: 223
+-- Data for Name: departments; Type: TABLE DATA; Schema: v000; Owner: postgres
+--
+
+COPY v000.departments (department_id, tenant_id, department_cd, created_at, created_by_id) FROM stdin;
+949ec500-084f-4411-9e8e-c5e86497e961	734dd7d9-85fc-4382-a1c2-743f8f6d000a	SALES	2025-04-16 00:35:26.64	\N
+e10fed10-ee4d-4c57-8425-f0f362689983	734dd7d9-85fc-4382-a1c2-743f8f6d000a	DEV	2025-04-16 00:35:26.643	\N
+\.
+
+
+--
+-- TOC entry 4928 (class 0 OID 20751)
+-- Dependencies: 221
+-- Data for Name: emp_account; Type: TABLE DATA; Schema: v000; Owner: postgres
+--
+
+COPY v000.emp_account (emp_account_cd, emp_name, emp_kana_name, email, password_hash, role, valid_flg, last_login, created_at, created_by_id, updated_at, updated_by_id, emp_account_id, tenant_id) FROM stdin;
+EMP002	鈴木 花子	スズキ ハナコ	suzuki@sample.co.jp	$2b$10$YourHashedPasswordHere	USER	1	\N	2025-04-16 00:35:26.659	\N	2025-04-16 00:35:26.659	\N	f87d177a-cec0-4257-a6d1-6f6012d4af02	734dd7d9-85fc-4382-a1c2-743f8f6d000a
+EMP003	田中 一郎	タナカ イチロウ	tanaka@sample.co.jp	$2b$10$YourHashedPasswordHere	USER	1	\N	2025-04-16 00:35:26.66	\N	2025-04-16 00:35:26.66	\N	8d02e097-b2f5-4f54-9d55-c49936f83fbc	734dd7d9-85fc-4382-a1c2-743f8f6d000a
+EMP001	山田 太太郎	ヤマダ タロウ	yamada@sample.co.jp	ktkrr0714	ADMIN	1	\N	2025-04-16 00:35:26.655	\N	2025-04-16 00:35:26.655	\N	46e61bd7-50e4-4897-a48a-e8f499ae29c0	734dd7d9-85fc-4382-a1c2-743f8f6d000a
+test1	テストユーザー	テストユーザー	test@example.com	$2b$10$JJxB3T9V.fO9czwxQ1RiReHAkNvlo3Mcq7GitvaBMnJYmhGbjZKja	admin	1	\N	2025-04-27 21:25:43.848	\N	2025-04-27 21:25:43.848	\N	f3e2e4d7-c58c-4f29-b9dc-1fb9d914d210	734dd7d9-85fc-4382-a1c2-743f8f6d000a
+\.
+
+
+--
+-- TOC entry 4932 (class 0 OID 20780)
+-- Dependencies: 225
+-- Data for Name: employee_departments; Type: TABLE DATA; Schema: v000; Owner: postgres
+--
+
+COPY v000.employee_departments (employee_department_id, emp_account_id, department_id, tenant_id, valid_from, valid_to, valid_flg, assignment_created_at, assignment_created_by_id) FROM stdin;
+b50bc36c-6e14-4e63-8bc6-82a3986edcf9	46e61bd7-50e4-4897-a48a-e8f499ae29c0	949ec500-084f-4411-9e8e-c5e86497e961	734dd7d9-85fc-4382-a1c2-743f8f6d000a	2025-04-16 00:35:26.661	\N	1	2025-04-16 00:35:26.662	\N
+908f7919-c7db-4a91-a0db-fac601e6b9bf	f87d177a-cec0-4257-a6d1-6f6012d4af02	e10fed10-ee4d-4c57-8425-f0f362689983	734dd7d9-85fc-4382-a1c2-743f8f6d000a	2025-04-16 00:35:26.661	\N	1	2025-04-16 00:35:26.662	\N
+5b107435-389a-40d2-abc2-f990d10579e8	8d02e097-b2f5-4f54-9d55-c49936f83fbc	949ec500-084f-4411-9e8e-c5e86497e961	734dd7d9-85fc-4382-a1c2-743f8f6d000a	2025-04-16 00:35:26.661	\N	1	2025-04-16 00:35:26.662	\N
+\.
+
+
+--
+-- TOC entry 4929 (class 0 OID 20762)
+-- Dependencies: 222
+-- Data for Name: org_history; Type: TABLE DATA; Schema: v000; Owner: postgres
+--
+
+COPY v000.org_history (org_history_id, tenant_id, org_history_cd, valid_from, valid_to, org_change_name, created_at, created_by_id, updated_at, updated_by_id) FROM stdin;
+b85db476-bdff-4001-b141-be261cc50d82	734dd7d9-85fc-4382-a1c2-743f8f6d000a	INIT	2025-04-16 00:35:26.633	\N	初期組織構成	2025-04-16 00:35:26.635	\N	2025-04-16 00:35:26.635	\N
+\.
+
+
+--
+-- TOC entry 4933 (class 0 OID 20868)
+-- Dependencies: 226
+-- Data for Name: organizations; Type: TABLE DATA; Schema: v000; Owner: postgres
+--
+
+COPY v000.organizations (id, name, code, address, phone, email, website, description, status, created_at, updated_at, currency, language, timezone) FROM stdin;
+734dd7d9-85fc-4382-a1c2-743f8f6d000a	株式会社サンプル	SAMPLE	東京都渋谷区	03-1234-5678	info@sample.co.jp	https://www.sample.co.jp	サンプル組織の説明	ACTIVE	2025-04-16 00:35:26.625	2025-04-16 00:35:26.625	JPY	ja	Asia/Tokyo
+\.
+
+
+--
+-- TOC entry 4734 (class 2606 OID 20750)
+-- Name: _prisma_migrations _prisma_migrations_pkey; Type: CONSTRAINT; Schema: v000; Owner: postgres
+--
+
+ALTER TABLE ONLY v000._prisma_migrations
+    ADD CONSTRAINT _prisma_migrations_pkey PRIMARY KEY (id);
+
+
+--
+-- TOC entry 4756 (class 2606 OID 20779)
+-- Name: department_versions department_versions_pkey; Type: CONSTRAINT; Schema: v000; Owner: postgres
+--
+
+ALTER TABLE ONLY v000.department_versions
+    ADD CONSTRAINT department_versions_pkey PRIMARY KEY (department_version_id);
+
+
+--
+-- TOC entry 4748 (class 2606 OID 20773)
+-- Name: departments departments_pkey; Type: CONSTRAINT; Schema: v000; Owner: postgres
+--
+
+ALTER TABLE ONLY v000.departments
+    ADD CONSTRAINT departments_pkey PRIMARY KEY (department_id);
+
+
+--
+-- TOC entry 4736 (class 2606 OID 20761)
+-- Name: emp_account emp_account_pkey; Type: CONSTRAINT; Schema: v000; Owner: postgres
+--
+
+ALTER TABLE ONLY v000.emp_account
+    ADD CONSTRAINT emp_account_pkey PRIMARY KEY (emp_account_id);
+
+
+--
+-- TOC entry 4765 (class 2606 OID 20785)
+-- Name: employee_departments employee_departments_pkey; Type: CONSTRAINT; Schema: v000; Owner: postgres
+--
+
+ALTER TABLE ONLY v000.employee_departments
+    ADD CONSTRAINT employee_departments_pkey PRIMARY KEY (employee_department_id);
+
+
+--
+-- TOC entry 4741 (class 2606 OID 20767)
+-- Name: org_history org_history_pkey; Type: CONSTRAINT; Schema: v000; Owner: postgres
+--
+
+ALTER TABLE ONLY v000.org_history
+    ADD CONSTRAINT org_history_pkey PRIMARY KEY (org_history_id);
+
+
+--
+-- TOC entry 4769 (class 2606 OID 20875)
+-- Name: organizations organizations_pkey; Type: CONSTRAINT; Schema: v000; Owner: postgres
+--
+
+ALTER TABLE ONLY v000.organizations
+    ADD CONSTRAINT organizations_pkey PRIMARY KEY (id);
+
+
+--
+-- TOC entry 4746 (class 1259 OID 20791)
+-- Name: department_tenant_cd_unique; Type: INDEX; Schema: v000; Owner: postgres
+--
+
+CREATE UNIQUE INDEX department_tenant_cd_unique ON v000.departments USING btree (tenant_id, department_cd);
+
+
+--
+-- TOC entry 4750 (class 1259 OID 20792)
+-- Name: department_versions_department_id_idx; Type: INDEX; Schema: v000; Owner: postgres
+--
+
+CREATE INDEX department_versions_department_id_idx ON v000.department_versions USING btree (department_id);
+
+
+--
+-- TOC entry 4751 (class 1259 OID 20796)
+-- Name: department_versions_department_id_valid_from_idx; Type: INDEX; Schema: v000; Owner: postgres
+--
+
+CREATE INDEX department_versions_department_id_valid_from_idx ON v000.department_versions USING btree (department_id, valid_from);
+
+
+--
+-- TOC entry 4752 (class 1259 OID 20797)
+-- Name: department_versions_department_id_valid_to_idx; Type: INDEX; Schema: v000; Owner: postgres
+--
+
+CREATE INDEX department_versions_department_id_valid_to_idx ON v000.department_versions USING btree (department_id, valid_to);
+
+
+--
+-- TOC entry 4753 (class 1259 OID 20794)
+-- Name: department_versions_org_history_id_idx; Type: INDEX; Schema: v000; Owner: postgres
+--
+
+CREATE INDEX department_versions_org_history_id_idx ON v000.department_versions USING btree (org_history_id);
+
+
+--
+-- TOC entry 4754 (class 1259 OID 20795)
+-- Name: department_versions_parent_department_id_idx; Type: INDEX; Schema: v000; Owner: postgres
+--
+
+CREATE INDEX department_versions_parent_department_id_idx ON v000.department_versions USING btree (parent_department_id);
+
+
+--
+-- TOC entry 4757 (class 1259 OID 20793)
+-- Name: department_versions_tenant_id_idx; Type: INDEX; Schema: v000; Owner: postgres
+--
+
+CREATE INDEX department_versions_tenant_id_idx ON v000.department_versions USING btree (tenant_id);
+
+
+--
+-- TOC entry 4749 (class 1259 OID 20790)
+-- Name: departments_tenant_id_idx; Type: INDEX; Schema: v000; Owner: postgres
+--
+
+CREATE INDEX departments_tenant_id_idx ON v000.departments USING btree (tenant_id);
+
+
+--
+-- TOC entry 4737 (class 1259 OID 20806)
+-- Name: emp_account_tenant_cd_unique; Type: INDEX; Schema: v000; Owner: postgres
+--
+
+CREATE UNIQUE INDEX emp_account_tenant_cd_unique ON v000.emp_account USING btree (tenant_id, emp_account_cd);
+
+
+--
+-- TOC entry 4738 (class 1259 OID 20807)
+-- Name: emp_account_tenant_email_unique; Type: INDEX; Schema: v000; Owner: postgres
+--
+
+CREATE UNIQUE INDEX emp_account_tenant_email_unique ON v000.emp_account USING btree (tenant_id, email);
+
+
+--
+-- TOC entry 4739 (class 1259 OID 20805)
+-- Name: emp_account_tenant_id_idx; Type: INDEX; Schema: v000; Owner: postgres
+--
+
+CREATE INDEX emp_account_tenant_id_idx ON v000.emp_account USING btree (tenant_id);
+
+
+--
+-- TOC entry 4758 (class 1259 OID 20799)
+-- Name: employee_departments_department_id_idx; Type: INDEX; Schema: v000; Owner: postgres
+--
+
+CREATE INDEX employee_departments_department_id_idx ON v000.employee_departments USING btree (department_id);
+
+
+--
+-- TOC entry 4759 (class 1259 OID 20803)
+-- Name: employee_departments_department_id_valid_from_idx; Type: INDEX; Schema: v000; Owner: postgres
+--
+
+CREATE INDEX employee_departments_department_id_valid_from_idx ON v000.employee_departments USING btree (department_id, valid_from);
+
+
+--
+-- TOC entry 4760 (class 1259 OID 20804)
+-- Name: employee_departments_department_id_valid_to_idx; Type: INDEX; Schema: v000; Owner: postgres
+--
+
+CREATE INDEX employee_departments_department_id_valid_to_idx ON v000.employee_departments USING btree (department_id, valid_to);
+
+
+--
+-- TOC entry 4761 (class 1259 OID 20798)
+-- Name: employee_departments_emp_account_id_idx; Type: INDEX; Schema: v000; Owner: postgres
+--
+
+CREATE INDEX employee_departments_emp_account_id_idx ON v000.employee_departments USING btree (emp_account_id);
+
+
+--
+-- TOC entry 4762 (class 1259 OID 20801)
+-- Name: employee_departments_emp_account_id_valid_from_idx; Type: INDEX; Schema: v000; Owner: postgres
+--
+
+CREATE INDEX employee_departments_emp_account_id_valid_from_idx ON v000.employee_departments USING btree (emp_account_id, valid_from);
+
+
+--
+-- TOC entry 4763 (class 1259 OID 20802)
+-- Name: employee_departments_emp_account_id_valid_to_idx; Type: INDEX; Schema: v000; Owner: postgres
+--
+
+CREATE INDEX employee_departments_emp_account_id_valid_to_idx ON v000.employee_departments USING btree (emp_account_id, valid_to);
+
+
+--
+-- TOC entry 4766 (class 1259 OID 20800)
+-- Name: employee_departments_tenant_id_idx; Type: INDEX; Schema: v000; Owner: postgres
+--
+
+CREATE INDEX employee_departments_tenant_id_idx ON v000.employee_departments USING btree (tenant_id);
+
+
+--
+-- TOC entry 4742 (class 1259 OID 20789)
+-- Name: org_history_tenant_cd_unique; Type: INDEX; Schema: v000; Owner: postgres
+--
+
+CREATE UNIQUE INDEX org_history_tenant_cd_unique ON v000.org_history USING btree (tenant_id, org_history_cd);
+
+
+--
+-- TOC entry 4743 (class 1259 OID 20786)
+-- Name: org_history_tenant_id_idx; Type: INDEX; Schema: v000; Owner: postgres
+--
+
+CREATE INDEX org_history_tenant_id_idx ON v000.org_history USING btree (tenant_id);
+
+
+--
+-- TOC entry 4744 (class 1259 OID 20787)
+-- Name: org_history_tenant_id_valid_from_idx; Type: INDEX; Schema: v000; Owner: postgres
+--
+
+CREATE INDEX org_history_tenant_id_valid_from_idx ON v000.org_history USING btree (tenant_id, valid_from);
+
+
+--
+-- TOC entry 4745 (class 1259 OID 20788)
+-- Name: org_history_tenant_id_valid_to_idx; Type: INDEX; Schema: v000; Owner: postgres
+--
+
+CREATE INDEX org_history_tenant_id_valid_to_idx ON v000.org_history USING btree (tenant_id, valid_to);
+
+
+--
+-- TOC entry 4767 (class 1259 OID 20876)
+-- Name: organizations_code_key; Type: INDEX; Schema: v000; Owner: postgres
+--
+
+CREATE UNIQUE INDEX organizations_code_key ON v000.organizations USING btree (code);
+
+
+--
+-- TOC entry 4775 (class 2606 OID 20833)
+-- Name: department_versions department_versions_department_id_fkey; Type: FK CONSTRAINT; Schema: v000; Owner: postgres
+--
+
+ALTER TABLE ONLY v000.department_versions
+    ADD CONSTRAINT department_versions_department_id_fkey FOREIGN KEY (department_id) REFERENCES v000.departments(department_id) ON UPDATE CASCADE ON DELETE RESTRICT;
+
+
+--
+-- TOC entry 4776 (class 2606 OID 20838)
+-- Name: department_versions department_versions_org_history_id_fkey; Type: FK CONSTRAINT; Schema: v000; Owner: postgres
+--
+
+ALTER TABLE ONLY v000.department_versions
+    ADD CONSTRAINT department_versions_org_history_id_fkey FOREIGN KEY (org_history_id) REFERENCES v000.org_history(org_history_id) ON UPDATE CASCADE ON DELETE SET NULL;
+
+
+--
+-- TOC entry 4777 (class 2606 OID 20843)
+-- Name: department_versions department_versions_parent_department_id_fkey; Type: FK CONSTRAINT; Schema: v000; Owner: postgres
+--
+
+ALTER TABLE ONLY v000.department_versions
+    ADD CONSTRAINT department_versions_parent_department_id_fkey FOREIGN KEY (parent_department_id) REFERENCES v000.departments(department_id) ON UPDATE CASCADE ON DELETE SET NULL;
+
+
+--
+-- TOC entry 4778 (class 2606 OID 20848)
+-- Name: department_versions department_versions_version_created_by_id_fkey; Type: FK CONSTRAINT; Schema: v000; Owner: postgres
+--
+
+ALTER TABLE ONLY v000.department_versions
+    ADD CONSTRAINT department_versions_version_created_by_id_fkey FOREIGN KEY (version_created_by_id) REFERENCES v000.emp_account(emp_account_id) ON UPDATE CASCADE ON DELETE SET NULL;
+
+
+--
+-- TOC entry 4774 (class 2606 OID 20828)
+-- Name: departments departments_created_by_id_fkey; Type: FK CONSTRAINT; Schema: v000; Owner: postgres
+--
+
+ALTER TABLE ONLY v000.departments
+    ADD CONSTRAINT departments_created_by_id_fkey FOREIGN KEY (created_by_id) REFERENCES v000.emp_account(emp_account_id) ON UPDATE CASCADE ON DELETE SET NULL;
+
+
+--
+-- TOC entry 4770 (class 2606 OID 20808)
+-- Name: emp_account emp_account_created_by_id_fkey; Type: FK CONSTRAINT; Schema: v000; Owner: postgres
+--
+
+ALTER TABLE ONLY v000.emp_account
+    ADD CONSTRAINT emp_account_created_by_id_fkey FOREIGN KEY (created_by_id) REFERENCES v000.emp_account(emp_account_id) ON UPDATE CASCADE ON DELETE SET NULL;
+
+
+--
+-- TOC entry 4771 (class 2606 OID 20813)
+-- Name: emp_account emp_account_updated_by_id_fkey; Type: FK CONSTRAINT; Schema: v000; Owner: postgres
+--
+
+ALTER TABLE ONLY v000.emp_account
+    ADD CONSTRAINT emp_account_updated_by_id_fkey FOREIGN KEY (updated_by_id) REFERENCES v000.emp_account(emp_account_id) ON UPDATE CASCADE ON DELETE SET NULL;
+
+
+--
+-- TOC entry 4779 (class 2606 OID 20863)
+-- Name: employee_departments employee_departments_assignment_created_by_id_fkey; Type: FK CONSTRAINT; Schema: v000; Owner: postgres
+--
+
+ALTER TABLE ONLY v000.employee_departments
+    ADD CONSTRAINT employee_departments_assignment_created_by_id_fkey FOREIGN KEY (assignment_created_by_id) REFERENCES v000.emp_account(emp_account_id) ON UPDATE CASCADE ON DELETE SET NULL;
+
+
+--
+-- TOC entry 4780 (class 2606 OID 20858)
+-- Name: employee_departments employee_departments_department_id_fkey; Type: FK CONSTRAINT; Schema: v000; Owner: postgres
+--
+
+ALTER TABLE ONLY v000.employee_departments
+    ADD CONSTRAINT employee_departments_department_id_fkey FOREIGN KEY (department_id) REFERENCES v000.departments(department_id) ON UPDATE CASCADE ON DELETE RESTRICT;
+
+
+--
+-- TOC entry 4781 (class 2606 OID 20853)
+-- Name: employee_departments employee_departments_emp_account_id_fkey; Type: FK CONSTRAINT; Schema: v000; Owner: postgres
+--
+
+ALTER TABLE ONLY v000.employee_departments
+    ADD CONSTRAINT employee_departments_emp_account_id_fkey FOREIGN KEY (emp_account_id) REFERENCES v000.emp_account(emp_account_id) ON UPDATE CASCADE ON DELETE RESTRICT;
+
+
+--
+-- TOC entry 4772 (class 2606 OID 20818)
+-- Name: org_history org_history_created_by_id_fkey; Type: FK CONSTRAINT; Schema: v000; Owner: postgres
+--
+
+ALTER TABLE ONLY v000.org_history
+    ADD CONSTRAINT org_history_created_by_id_fkey FOREIGN KEY (created_by_id) REFERENCES v000.emp_account(emp_account_id) ON UPDATE CASCADE ON DELETE SET NULL;
+
+
+--
+-- TOC entry 4773 (class 2606 OID 20823)
+-- Name: org_history org_history_updated_by_id_fkey; Type: FK CONSTRAINT; Schema: v000; Owner: postgres
+--
+
+ALTER TABLE ONLY v000.org_history
+    ADD CONSTRAINT org_history_updated_by_id_fkey FOREIGN KEY (updated_by_id) REFERENCES v000.emp_account(emp_account_id) ON UPDATE CASCADE ON DELETE SET NULL;
+
+
+-- Completed on 2025-04-30 00:07:49
+
+--
+-- PostgreSQL database dump complete
+--
+

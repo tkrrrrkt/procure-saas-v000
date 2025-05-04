@@ -1,0 +1,180 @@
+このフォルダ配下のprocure-erpは、購買管理Saasアプリのフロントエンドのドラフトです。
+
+さきほど伝えたような各種機能があり、マスタもあり、バックエンドでのチェックやデータ登録・取得など業務システムで想定されるさまざまな処理をバックエンドに作りこみが必要だとおもいます。
+
+主要な機能で機能一覧として、以下がおおよそあります。
+
+🔹 1. ダッシュボード
+* /dashboard システム全体の概要と主要な情報を表示
+🔹 2. 発注依頼
+* /purchase-requests 発注依頼関連の機能提供
+   * 発注依頼入力 /purchase-requests/new 新しい発注依頼を作成
+   * 発注依頼一覧 /purchase-requests 発注依頼のリスト表示・管理
+   * Web見積回答 /supplier/quotation-responses サプライヤーからのWeb見積回答機能
+🔹 3. 購買管理
+* /purchase-orders 購買関連の管理機能
+◆ 発注管理
+* 発注入力 /purchase-orders/new 新しい発注を作成
+* 発注一覧 /purchase-orders 発注のリスト表示・管理
+* 発注データ取込 /purchase-orders/import 外部データのインポート
+* 注文書発行 /purchase-orders/issue 注文書を発行
+* Web発注照会 /purchase-orders/web-portal Webポータルでの発注情報確認
+* 発注点発注履歴 /reorder-point/auto-order/history 自動発注の履歴確認
+◆ 入荷管理
+* 入荷予定照会 /receiving/arrivals/schedule 入荷予定の照会
+* 入荷一覧 /receiving/arrivals 入荷のリスト表示・管理
+* 入荷処理 /receiving/arrivals/new 個別の入荷処理
+* 一括入荷処理 /receiving/arrivals/bulk 複数件の一括入荷処理
+◆ 仕入管理
+* 仕入一覧 /receiving 仕入データの表示・管理
+* 仕入入力 /receiving/new 新しい仕入データを入力
+* 一括仕入処理 /receiving/purchases/bulk 複数仕入の一括処理
+◆ 請求書照合
+* /invoice-matching/list 請求書と発注・仕入情報の照合機能
+◆ 在庫管理
+* 在庫一覧 /inventory 在庫の表示
+* 受払照会 /inventory/transactions 在庫の受払履歴照会
+* 出庫入力 /inventory/issue 出庫データの入力
+◆ ECサイト価格検索
+* /ec-price-search ECサイト上の商品の価格検索
+🔹 4. マスタ管理
+* /master 各種マスタデータの管理機能
+◆ 仕入先別単価
+* /price-management/vendor-prices 仕入先ごとの単価管理
+◆ 発注点管理
+* /reorder-point 発注点の設定と管理
+◆ 倉庫管理
+* 倉庫一覧 /warehouses 登録済み倉庫の一覧表示
+* 倉庫登録 /warehouses/new 新しい倉庫の登録
+◆ 取引先管理
+* 仕入先一覧 /vendors 仕入先の一覧表示
+* 仕入先登録 /vendors/new 新規仕入先の登録
+◆ 組織管理
+* 組織一覧 /organizations 組織の一覧表示
+* 組織登録 /organizations/new 新規組織の登録
+◆ 社員管理
+* 社員一覧 /employees 社員の一覧表示
+* 社員登録 /employees/new 新規社員の登録
+◆ 商品管理
+* 商品一覧 /products 商品の一覧表示
+* 商品登録 /products/new 新規商品の登録
+🔹 5. アナリシス（分析）
+* /analysis 分析機能を提供
+   * レポート /reports 分析レポートの表示
+🔹 6. ログイン
+* /auth/login ログイン画面
+🔹 7. 新規登録
+* /auth/register アカウントの新規登録画面
+🔹 8. パスワードリセット
+* /auth/forgot-password パスワードを忘れた際のリセット申請
+🔹 9. パスワード再設定
+* /auth/reset-password パスワード再設定用の画面
+として
+このあとバックエンドを作成していきたいとおもっています。
+システム環境として
+- プログラミング言語: TypeScript
+- バックエンドフレームワーク: NestJS
+- データベース: PostgreSQL (Azure)
+- ORM: TypeORM または Prisma
+- API: RESTful API (OpenAPI/Swagger ドキュメント付き)
+- 認証: JWT (JSON Web Tokens)
+- テスト: Jest
+- バリデーション: class-validator
+- ロギング: Winston または NestJS Logger
+を考えています。
+バックエンドをprocure-erp-backendフォルダ配下につくっていきたいとおもっています。以下は構成です
+
+バックエンドフォルダ構成
+NestJSバックエンドアプリケーションの包括的なフォルダ構成は以下のとおりです：
+
+procure-erp-backend/
+├── .env                        # 環境変数
+├── .env.example                # 環境変数のサンプル
+├── .gitignore                  # Gitの除外ファイル設定
+├── docker-compose.yml          # Dockerコンポーズ設定 (オプション)
+├── Dockerfile                  # Docker設定 (オプション)
+├── package.json                # NPM依存関係とスクリプト
+├── tsconfig.json               # TypeScript設定
+├── nest-cli.json               # NestJS CLI設定
+├── README.md                   # プロジェクトドキュメント
+└── src/                        # ソースコード
+    ├── main.ts                 # アプリケーションのエントリーポイント
+    ├── app.module.ts           # ルートアプリケーションモジュール
+    ├── app.controller.ts       # ルートコントローラー (オプション)
+    ├── app.service.ts          # ルートサービス (オプション)
+    ├── auth/                   # 認証モジュール
+    │   ├── auth.module.ts
+    │   ├── auth.controller.ts
+    │   ├── auth.service.ts
+    │   ├── strategies/         # Passportストラテジー
+    │   ├── guards/             # 認証ガード
+    │   └── dto/                # データ転送オブジェクト
+    ├── common/                 # モジュール間で共有される共通コード
+    │   ├── constants/          # アプリケーション定数
+    │   ├── decorators/         # カスタムデコレーター
+    │   ├── filters/            # 例外フィルター
+    │   ├── guards/             # 認可用ガード
+    │   ├── interceptors/       # カスタムインターセプター
+    │   ├── middlewares/        # カスタムミドルウェア
+    │   ├── pipes/              # カスタムバリデーションパイプ
+    │   └── utils/              # ユーティリティ関数
+    ├── config/                 # 設定ファイル
+    │   ├── database.config.ts  # データベース設定
+    │   ├── app.config.ts       # アプリケーション設定
+    │   └── swagger.config.ts   # Swaggerドキュメント設定
+    ├── core/                   # コアアプリケーションコンポーネント
+    │   ├── database/           # データベース関連ファイル
+    │   │   ├── migrations/     # TypeORMマイグレーション
+    │   │   └── seeds/          # データベースシードファイル
+    │   └── logger/             # ログ設定
+    ├── modules/                # 機能モジュール
+    │   ├── dashboard/          # ダッシュボードモジュール
+    │   ├── purchase-requests/  # 発注依頼モジュール
+    │   ├── purchase-orders/    # 発注管理モジュール
+    │   ├── receiving/          # 入荷管理モジュール
+    │   ├── inventory/          # 在庫管理モジュール
+    │   ├── invoice-matching/   # 請求書照合モジュール
+    │   ├── master/             # マスタデータ管理
+    │   │   ├── vendors/        # 仕入先モジュール
+    │   │   ├── products/       # 商品モジュール
+    │   │   ├── warehouses/     # 倉庫モジュール
+    │   │   ├── organizations/  # 組織モジュール
+    │   │   └── employees/      # 社員モジュール
+    │   ├── reports/            # レポートと分析モジュール
+    │   └── ec-price-search/    # ECサイト価格検索モジュール
+    └── shared/                 # モジュール間で共有されるリソース
+        ├── interfaces/         # TypeScriptインターフェース
+        ├── dto/                # 共有DTO
+        ├── entities/           # TypeORMエンティティ
+        ├── enums/              # 列挙型
+        └── models/             # ドメインモデル
+モジュール構成
+modulesディレクトリの各モジュールは、以下のような類似した構成を持ちます：
+
+module-name/
+├── module-name.module.ts       # モジュール定義
+├── module-name.controller.ts   # RESTfulエンドポイント用コントローラー
+├── module-name.service.ts      # ビジネスロジック
+├── module-name.repository.ts   # データアクセス層（必要な場合）
+├── dto/                        # データ転送オブジェクト
+│   ├── create-*.dto.ts
+│   ├── update-*.dto.ts
+│   └── response-*.dto.ts
+├── entities/                   # TypeORMエンティティ
+│   └── *.entity.ts
+├── interfaces/                 # TypeScriptインターフェース
+│   └── *.interface.ts
+└── tests/                      # このモジュール用のテスト
+    ├── module-name.controller.spec.ts
+    └── module-name.service.spec.ts
+    
+    
+次のステップとしては以下を実装していくことができます：
+認証モジュールの実装
+各機能モジュールの実装
+データベースエンティティの定義
+マイグレーションの設定
+バッチ処理の実装
+イベント処理の実装
+外部サービス連携の実装
+どの部分から実装を進めていきましょうか？

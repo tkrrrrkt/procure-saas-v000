@@ -1,0 +1,21 @@
+procure-erp/
+├── app/
+│   └── employees/
+│       ├── layout.tsx  (既存)
+│       ├── loading.tsx (既存 - データ取得中の表示に使われる)
+│       ├── page.tsx    (★修正対象 - データ取得・表示ロジック追加)
+│       └── new/
+│           └── page.tsx  (社員登録画面)
+├── features/
+│   └── employees/
+│       ├── actions/
+│       │   └── employee-actions.ts (★新規作成 or 修正 - API呼び出し関数)
+│       ├── components/
+│       │   ├── EmployeeList.tsx      (テーブル部分などを別コンポーネント化する場合)
+│       │   └── EmployeeSearch.tsx    (検索/フィルター部分を別コンポーネント化する場合)
+│       │   └── EmployeeTable.tsx     (★新規作成 - テーブル表示を担当するコンポーネント)
+│       └── types/
+│           └── employee.ts         (★修正 - APIのレスポンスに合わせた型定義)
+├── lib/ (or utils/, services/)
+│   └── api.ts (★新規作成 or 修正 - APIクライアント設定や共通関数)
+└── ... (他のファイル)

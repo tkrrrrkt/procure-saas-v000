@@ -1,0 +1,16 @@
+npm install --legacy-peer-deps
+
+front
+npm install axios
+npm install cookies-next
+npm install jwt-decode
+
+back
+npx prisma generate
+
+npm install bcrypt
+npm install passport-local
+npm install cookie-parser
+npm install @types/bcrypt 
+npm install @types/passport-local 
+npm install @types/cookie-parser --save-dev

@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = "postgresql://postgres:!Ktkrr0714@localhost:5432/procure_erp?schema=v000"
+}
+
+model EmpAccount {
+  emp_account_cd             String               @db.VarChar(20)
+  emp_name                   String               @db.VarChar(15)
+  emp_kana_name              String               @db.VarChar(15)
+  email                      String?              @db.VarChar(50)
+  password_hash              String               @db.VarChar(255)
+  role                       String               @db.VarChar(20)
+  valid_flg                  String               @db.VarChar(1)
+  last_login                 DateTime?
+  created_at                 DateTime             @default(now())
+  created_by_id              String?              @db.Uuid
+  updated_at                 DateTime             @updatedAt
+  updated_by_id              String?              @db.Uuid
+  emp_account_id             String               @id @default(uuid()) @db.Uuid
+  tenant_id                  String               @db.Uuid
+  createdDepartmentVersions  DepartmentVersion[]  @relation("DepartmentVersionCreatedBy")
+  createdDepartments         Department[]         @relation("DepartmentCreatedBy")
+  createdBy                  EmpAccount?          @relation("CreatedByAccounts", fields: [created_by_id], references: [emp_account_id])
+  createdAccounts            EmpAccount[]         @relation("CreatedByAccounts")
+  updatedBy                  EmpAccount?          @relation("UpdatedByAccounts", fields: [updated_by_id], references: [emp_account_id])
+  updatedAccounts            EmpAccount[]         @relation("UpdatedByAccounts")
+  createdEmployeeDepartments EmployeeDepartment[] @relation("EmployeeDepartmentCreatedBy")
+  departmentAssignments      EmployeeDepartment[]
+  createdOrgHistories        OrgHistory[]         @relation("OrgHistoryCreatedBy")
+  updatedOrgHistories        OrgHistory[]         @relation("OrgHistoryUpdatedBy")
+
+  @@unique([tenant_id, emp_account_cd], map: "emp_account_tenant_cd_unique")
+  @@unique([tenant_id, email], map: "emp_account_tenant_email_unique")
+  @@index([tenant_id])
+  @@map("emp_account")
+}
+
+model OrgHistory {
+  org_history_id     String              @id @default(uuid()) @db.Uuid
+  tenant_id          String              @db.Uuid
+  org_history_cd     String?             @db.VarChar(20)
+  valid_from         DateTime
+  valid_to           DateTime?
+  org_change_name    String              @db.VarChar(20)
+  created_at         DateTime            @default(now())
+  created_by_id      String?             @db.Uuid
+  updated_at         DateTime            @updatedAt
+  updated_by_id      String?             @db.Uuid
+  departmentVersions DepartmentVersion[]
+  createdBy          EmpAccount?         @relation("OrgHistoryCreatedBy", fields: [created_by_id], references: [emp_account_id])
+  updatedBy          EmpAccount?         @relation("OrgHistoryUpdatedBy", fields: [updated_by_id], references: [emp_account_id])
+
+  @@unique([tenant_id, org_history_cd], map: "org_history_tenant_cd_unique")
+  @@index([tenant_id])
+  @@index([tenant_id, valid_from])
+  @@index([tenant_id, valid_to])
+  @@map("org_history")
+}
+
+model Department {
+  department_id           String               @id @default(uuid()) @db.Uuid
+  tenant_id               String               @db.Uuid
+  department_cd           String               @db.VarChar(10)
+  created_at              DateTime             @default(now())
+  created_by_id           String?              @db.Uuid
+  versions                DepartmentVersion[]
+  childDepartmentVersions DepartmentVersion[]  @relation("ParentDepartmentVersion")
+  createdBy               EmpAccount?          @relation("DepartmentCreatedBy", fields: [created_by_id], references: [emp_account_id])
+  employeeAssignments     EmployeeDepartment[]
+
+  @@unique([tenant_id, department_cd], map: "department_tenant_cd_unique")
+  @@index([tenant_id])
+  @@map("departments")
+}
+
+model DepartmentVersion {
+  department_version_id String      @id @default(uuid()) @db.Uuid
+  department_id         String      @db.Uuid
+  tenant_id             String      @db.Uuid
+  org_history_id        String?     @db.Uuid
+  valid_from            DateTime
+  valid_to              DateTime?
+  department_name       String      @db.VarChar(30)
+  department_short_name String      @db.VarChar(15)
+  department_kana_name  String      @db.VarChar(30)
+  department_level      Int
+  department_symbol     String      @db.VarChar(3)
+  parent_department_id  String?     @db.Uuid
+  budget_target_flg     String      @db.VarChar(1)
+  prefectures           String?     @db.VarChar(20)
+  municipality          String?     @db.VarChar(20)
+  place_name            String?     @db.VarChar(20)
+  bldg_name             String?     @db.VarChar(20)
+  phone                 String?     @db.VarChar(20)
+  fax                   String?     @db.VarChar(20)
+  version_created_at    DateTime    @default(now())
+  version_created_by_id String?     @db.Uuid
+  department            Department  @relation(fields: [department_id], references: [department_id])
+  orgHistory            OrgHistory? @relation(fields: [org_history_id], references: [org_history_id])
+  parentDepartment      Department? @relation("ParentDepartmentVersion", fields: [parent_department_id], references: [department_id])
+  versionCreatedBy      EmpAccount? @relation("DepartmentVersionCreatedBy", fields: [version_created_by_id], references: [emp_account_id])
+
+  @@index([department_id])
+  @@index([tenant_id])
+  @@index([org_history_id])
+  @@index([parent_department_id])
+  @@index([department_id, valid_from])
+  @@index([department_id, valid_to])
+  @@map("department_versions")
+}
+
+model EmployeeDepartment {
+  employee_department_id   String      @id @default(uuid()) @db.Uuid
+  emp_account_id           String      @db.Uuid
+  department_id            String      @db.Uuid
+  tenant_id                String      @db.Uuid
+  valid_from               DateTime
+  valid_to                 DateTime?
+  valid_flg                String      @db.VarChar(1)
+  assignment_created_at    DateTime    @default(now())
+  assignment_created_by_id String?     @db.Uuid
+  assignmentCreatedBy      EmpAccount? @relation("EmployeeDepartmentCreatedBy", fields: [assignment_created_by_id], references: [emp_account_id])
+  department               Department  @relation(fields: [department_id], references: [department_id])
+  employee                 EmpAccount  @relation(fields: [emp_account_id], references: [emp_account_id])
+
+  @@index([emp_account_id])
+  @@index([department_id])
+  @@index([tenant_id])
+  @@index([emp_account_id, valid_from])
+  @@index([emp_account_id, valid_to])
+  @@index([department_id, valid_from])
+  @@index([department_id, valid_to])
+  @@map("employee_departments")
+}
+
+model Organization {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @db.VarChar(100)
+  code        String   @unique @db.VarChar(50)
+  address     String   @db.VarChar(255)
+  phone       String   @db.VarChar(20)
+  email       String   @db.VarChar(100)
+  website     String?  @db.VarChar(255)
+  description String?  @db.Text
+  status      String   @db.VarChar(20)
+  timezone    String   @db.VarChar(50)
+  language    String   @db.VarChar(10)
+  currency    String   @db.VarChar(10)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("organizations")
+}

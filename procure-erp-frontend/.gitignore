@@ -1,0 +1,27 @@
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment variables
+.env
+.env*.local
+.env.*.local
+
+# Build output (例: Next.js, etc.)
+.next/
+dist/
+build/
+out/
+
+# IDE/Editor directories
+.vscode/
+.idea/
+
+# Log files
+*.log

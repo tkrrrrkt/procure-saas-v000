@@ -1,0 +1,477 @@
+{
+  "project": {
+    "name": "procure-saas",
+    "type": "monorepo",
+    "structure": {
+      "frontend": "procure-erp-frontend", // Next.js v15.2.4
+      "backend": "procure-erp-backend"   // NestJS v10.0.0
+    },
+    "dependencies": { // 依存関係管理ルール (プロジェクト全体)
+      "rules": [
+        "未使用の依存関係は `npm prune` や手動確認により定期的に削除し、プロジェクトをクリーンに保つこと",
+        "依存関係を追加する際は、その必要性を十分に検討し、既存のライブラリで代替できないか確認すること",
+        "依存関係のバージョンは原則として \"^\" (キャレット) を使用し、マイナー・パッチ更新を許容する。ただし、互換性問題や重要な依存関係についてはバージョンを固定 (`~` やピンポイント) すること",
+        "定期的に `npm audit` を実行し、依存関係の脆弱性をチェックし、可能な限り迅速に対応すること"
+      ]
+    },
+    "security": { // セキュリティに関する基本的な考え方 (プロジェクト全体)
+      "rules": [
+        "セキュリティは設計段階から考慮し、OWASP Top 10 などの脅威を念頭に置き、セキュアコーディングの原則に従うこと",
+        "機密情報（APIキー、パスワード、JWTシークレット等）はコードリポジトリに絶対に含めず、環境変数 (`.env` と `@nestjs/config`) または専用のシークレット管理サービスを使用すること"
+      ]
+    }
+  },
+  "frontend": {
+    "framework": "Next.js", // v15.2.4
+    "styling": {
+      "primary": "Tailwind CSS",
+      "components": "shadcn/ui",
+      "rules": [
+        "フロントエンドのディレクトリ名は `procure-erp-frontend` とすること",
+        "スタイリングは Tailwind CSS のユーティリティクラスを最優先で使用すること",
+        "UIコンポーネントは shadcn/ui を最優先で使用すること。これにより Radix UI が内部的に利用される",
+        "独自のスタイリングやコンポーネントが必要な場合も、Tailwind CSS のユーティリティクラスまたは `@apply` を用いて実装すること",
+        "Material-UI, Chakra UI, Ant Design など、他の UI ライブラリは使用しないこと",
+        "テーマ切り替え機能（ダークモードなど）には `next-themes` を使用すること",
+        "トースト通知には `sonner` を使用し、shadcn/ui の `toast` コンポーネント経由で利用すること",
+        "shadcn/ui が内部で使用するライブラリ (`@radix-ui/*`, `cmdk`, `embla-carousel-react`, `input-otp`, `react-resizable-panels`, `vaul` 等) は、原則として shadcn/ui の提供するコンポーネントを通じて利用し、直接の利用は避けること"
+      ]
+    },
+    "state_management": {
+      "rules": [
+        "状態管理は React の組み込み機能（`useState`, `useContext`, `useReducer`）を優先的に使用する",
+        "より複雑な状態管理や、コンポーネント間の状態共有が広範囲に必要な場合は、Jotai または Zustand を使用可能とする。導入する場合は `npm install jotai` または `npm install zustand` を実行すること",
+        "Redux, MobX などの大規模な状態管理ライブラリの使用は避ける",
+        "グローバル状態は必要最小限に留め、可能な限りローカル状態や Props/Context 経由での受け渡しを検討すること"
+      ],
+      "directory": {
+        "stores": "Zustand を使用する場合のストアロジック (`src/stores/`)",
+        "atoms": "Jotai を使用する場合の atom 定義 (`src/atoms/`)"
+      }
+    },
+    "performance": { // ★パフォーマンス目標追加
+      "rules": [
+        "不要な再レンダリングを避けるため、`React.memo`, `useMemo`, `useCallback` をパフォーマンスボトルネックとなる箇所で適切に使用すること",
+        "巨大なリスト表示には `react-window` や `react-virtualized` などの仮想化ライブラリの使用を検討すること",
+        "画像最適化には Next.js の `<Image>` コンポーネントを必ず使用し、適切な `priority` や `sizes` 属性を設定すること",
+        "クライアントサイドでのデータフェッチングには SWR または React Query (`@tanstack/react-query`) の使用を推奨する。導入する場合は関連パッケージをインストールすること",
+        "Next.js の App Router (Server Components, Client Components, Route Handlers) を適切に使い分け、初期ロードパフォーマンスとバンドルサイズを最適化すること",
+        "Core Web Vitals の目標値を達成・維持するように努め、Lighthouse や PageSpeed Insights, Vercel Analytics 等で定期的に計測・改善を行うこと"
+      ],
+      "metrics": {
+        "core_web_vitals": {
+          "description": "ユーザー体験に関する Web パフォーマンス指標の目標値 (良好レベル)",
+          "LCP": "2.5秒以下", // Largest Contentful Paint
+          "INP": "200ミリ秒以下", // Interaction to Next Paint (FIDより推奨)
+          "CLS": "0.1以下"      // Cumulative Layout Shift
+        }
+      }
+    },
+    "error_handling": {
+      "rules": [
+        "アプリケーション全体のエラーを捕捉するために、App Router の規約に従い、グローバルなエラーバウンダリ (`error.tsx`) をルートまたは適切なレイアウトレベルで実装すること",
+        "API リクエストのエラーは、共通の API クライアント (`src/lib/api`) やカスタムフック内で一元的に処理し、共通の `ApiResponse` 形式に従ってエラー内容を解析し、ユーザーフレンドリーなフィードバック (例: `sonner` でのトースト通知) を表示すること",
+        "エラーメッセージは具体的かつ分かりやすく、可能であればユーザーが次にとるべきアクションを示唆するように努めること",
+        "開発環境 (`process.env.NODE_ENV === 'development'`) では、デバッグに役立つ詳細なエラー情報 (エラーオブジェクト、スタックトレース等) をコンソールに出力すること",
+        "本番環境では、エラー監視ツール (例: Sentry) にエラー情報を送信すること" // モニタリング連携
+      ],
+      "directory": {
+        "errors": "カスタムエラークラスやエラー関連のユーティリティ関数、型定義を配置 (`src/lib/errors` や `src/features/*/errors`)"
+      }
+    },
+    "testing": {
+      "rules": [
+        "UI コンポーネントには Jest と React Testing Library (`@testing-library/react`) を用いてユニットテスト・結合テストを作成すること",
+        "カスタムフックやユーティリティ関数にも Jest を用いてユニットテストを作成すること",
+        "E2E (エンドツーエンド) テストには Playwright を使用すること",
+        "認証、主要なデータ操作、複雑なビジネスロジックなど、アプリケーションのコア機能には必ずテストを作成すること",
+        "テストカバレッジは重要度に応じて目標を設定し、CI で計測すること（例: コア機能は 80% 以上）"
+      ],
+      "directory": {
+        "__tests__": "テストファイルを配置",
+        "__mocks__": "Jest のモックファイルやモックデータを配置"
+      }
+    },
+    "typescript": {
+      "rules": [
+        "`any` 型の使用は原則禁止とする (`eslint` ルールで強制)。必要な場合は `unknown` 型を使用し、型ガード (`typeof`, `instanceof`, カスタム型ガード関数) を行うこと",
+        "複数の箇所で使用される共通の型定義は `src/types` ディレクトリに集約すること",
+        "API リクエストのペイロード型およびレスポンス型 (`ApiResponse<T>` 含む) は必ず定義し、可能であればバックエンドと型定義を共有する (`@types/shared` パッケージ等) か、Zod スキーマから生成すること",
+        "Zod を使用したバリデーションスキーマから TypeScript の型を生成する (`z.infer<typeof schema>`) ことを推奨する"
+      ]
+    },
+    "accessibility": {
+      "rules": [
+        "WAI-ARIA 標準を理解し、セマンティックな HTML タグを優先的に使用すること。必要に応じて適切な `role` や `aria-*` 属性を付与すること",
+        "全てのインタラクティブ要素がキーボードのみで操作可能であることを確認すること (フォーカス順序、フォーカス表示を含む)",
+        "WCAG 2.1 AA レベルを目安に、十分な色のコントラスト比を確保すること",
+        "画像には、その内容や目的を伝える適切な `alt` テキストを提供すること (装飾目的の場合は `alt=\"\"`)",
+        "フォーム要素には `<label>` を関連付けること"
+      ]
+    },
+    "directory": {
+      "features": {
+        "description": "機能ごとのモジュールを配置 (例: `src/features/purchaseOrder/`)",
+        "structure": {
+          "components": "機能固有の React コンポーネント",
+          "hooks": "機能固有のカスタムフック",
+          "types": "機能固有の TypeScript 型定義",
+          "utils": "機能固有のユーティリティ関数",
+          "api": "機能固有の API リクエスト/レスポンス処理 (SWR/React Query フックなど)"
+        }
+      },
+      "components": {
+        "description": "複数の機能から利用される共通コンポーネントを配置 (`src/components/`)",
+        "structure": {
+          "ui": "shadcn/ui から生成されたコンポーネント (原則として直接編集せず、必要ならラップする)",
+          "common": "プロジェクト固有の共通UIコンポーネント (例: `Button`, `DataTable`, `Modal`)",
+          "layout": "ヘッダー、サイドバー、フッター、ページ全体の骨格などのレイアウトコンポーネント"
+        }
+      },
+      "lib": {
+        "description": "プロジェクト全体で使用するユーティリティ、ヘルパー関数、APIクライアントなどを配置 (`src/lib/`)",
+        "structure": {
+          "utils": "汎用的なユーティリティ関数 (例: `dateUtils.ts`, `stringUtils.ts`)",
+          "api": "共通 API クライアント設定、ベースリクエスト関数、`ApiResponse` 処理",
+          "constants": "共通の定数 (例: `ROUTES`, `API_ENDPOINTS`)",
+          "config": "環境変数などの設定関連"
+        }
+      },
+      "hooks": "プロジェクト全体で使われる共通カスタムフック (`src/hooks/`)",
+      "types": "プロジェクト全体で使われる共通型定義、`ApiResponse` 型定義 (`src/types/`)",
+      "styles": "グローバル CSS や Tailwind CSS の設定 (`src/styles/`)"
+    }
+  },
+  "backend": {
+    "framework": "NestJS", // v10.0.0
+    "database": "PostgreSQL",
+    "orm": { // ★ORM セクション詳細化 + schema.prisma 参照強化
+      "name": "Prisma",
+      "version": "6.6.0", // package.json に基づくバージョン
+      "schema_path": "C:/21_procure-saas/procure-erp-backend/prisma/schema.prisma", // ユーザー指定パス
+      "rules": [
+        "`schema.prisma` ファイルは、このバックエンドアプリケーションにおけるデータベーススキーマとデータモデルの **唯一の真実 (Single Source of Truth)** です。全てのデータベース関連の実装は、このファイルに基づかなければなりません。",
+        "データベース操作は、`schema.prisma` から `npx prisma generate` コマンドによって生成される Prisma Client (`@prisma/client`) のみを使用すること。他の ORM や直接的な SQL クエリ (`$queryRaw` 等) は、明確な理由と承認なしには原則禁止です。",
+        "Prisma Client の型安全性は `schema.prisma` に完全に依存しています。スキーマを変更した場合は、必ず `npx prisma generate` を実行し、クライアントを最新の状態に保ってください。",
+        "**最重要:** バックエンドのコード (Service, DTO, Controller, Repository など) を実装・変更する際は、**必ず `schema.prisma` に定義されたモデル、フィールド、型、リレーションを最初に確認し、それに厳密に従ってください。**"
+      ]
+    },
+    "validation": {
+      "rules": [
+        "入力データバリデーションには `class-validator` と `class-transformer` を使用すること",
+        "バリデーションエラーが発生した場合、HTTP ステータスコード 422 (Unprocessable Entity) を返すこと",
+        "バリデーションエラーのレスポンスは、共通の `ApiResponse` 形式 (`status: 'error'`) に従い、`error.code` を `VALIDATION_ERROR` とし、`error.details` にどのフィールドでどのようなエラーが発生したかの情報 (例: `{ field: 'email', message: 'メールアドレスの形式が正しくありません。' }`) を配列で含めること",
+        "カスタムバリデーションロジックは `src/common/validators` ディレクトリに配置し、再利用可能なデコレータ (`src/common/decorators`) として定義すること",
+        "バリデーションエラーメッセージは日本語で、ユーザーに分かりやすい表現を心がけること"
+      ],
+      "directory": {
+        "common/pipes": "カスタムバリデーションパイプ (`ValidationPipe` の拡張など) や変換パイプを配置",
+        "common/validators": "カスタムバリデーションロジックを実装するクラス (`ValidatorConstraintInterface`) を配置",
+        "common/decorators": "カスタムバリデーションデコレータ (`registerDecorator`) を配置"
+      },
+      "error_handling": {
+        "validation_error": {
+          "status": 422,
+          "format": {
+            "code": "VALIDATION_ERROR",
+            "message": "入力内容に誤りがあります。",
+            "details": [
+              { "field": "fieldName", "message": "具体的なエラーメッセージ" }
+            ]
+          }
+        }
+      }
+    },
+    "authentication": {
+      "rules": [
+        "認証方式には Passport.js (`@nestjs/passport`) と JWT (`@nestjs/jwt`) を使用すること",
+        "パスワードは bcrypt などの強力なハッシュアルゴリズムを用いてハッシュ化し、ソルトを付与してデータベースに保存すること (`bcrypt` ライブラリ推奨)",
+        "JWT トークンの生成と検証は `JwtService` を使用し、シークレットキーと有効期限は環境変数で管理すること",
+        "認証が必要なエンドポイントには `@UseGuards(AuthGuard('jwt'))` を適用すること",
+        "RBAC (ロールベースアクセス制御) を実装する場合、`RolesGuard` と `@Roles()` デコレータを適切に組み合わせ、ユーザーの役割に基づいてアクセス制御を行うこと"
+      ]
+    },
+    "security": {
+      "rules": [
+        "環境変数は `@nestjs/config` を使用して管理し、`.env` ファイルに定義すること。`.env` ファイルは `.gitignore` に必ず追加すること",
+        "Prisma Client は SQL インジェクション対策が組み込まれているが、ユーザー入力をサニタイズせずに Prisma の `$queryRaw` や `$executeRawUnsafe` に渡さないこと",
+        "ユーザー入力由来のデータをレスポンスに含める際は、XSS 対策を意識すること (JSON レスポンスでは通常問題ないが、注意は必要)",
+        "機密性の高い操作や状態を変更するエンドポイント (特に `POST`, `PUT`, `DELETE`) については、CSRF 対策を検討・実装すること (例: `csurf` ミドルウェア)",
+        "ブルートフォース攻撃対策として、ログイン API やパスワードリセット API など、試行回数制限が必要なエンドポイントにはレート制限を導入すること (`@nestjs/throttler` の利用を推奨)"
+      ]
+    },
+    "logging": {
+      "rules": [
+        "ログ出力には NestJS 標準の `Logger` または、必要に応じて `pino` などの高性能ロガーライブラリを導入し、カスタムロガーとして実装すること",
+        "リクエストの開始/終了 (パス、メソッド、ステータスコード、処理時間を含む)、重要なビジネスロジックの実行ポイント、エラー発生時 (スタックトレース含む) など、適切な箇所でログを出力すること",
+        "ログレベル (VERBOSE, DEBUG, LOG, WARN, ERROR) を適切に使い分けること。本番環境では通常 LOG レベル以上を出力する",
+        "本番環境のログには、パスワード、生トークン、API キー、個人情報などの機密情報を含めないこと。必要に応じてマスキング処理を行うこと",
+        "可能であれば、リクエストごとに一意なトレース ID (Correlation ID) を付与し、関連するログを追跡しやすくすること (例: `nestjs-pino` の機能を利用)"
+      ]
+    },
+    "module_structure": {
+      "rules": [
+        "アプリケーションは機能ドメインごと (例: `AuthModule`, `UserModule`, `PurchaseOrderModule`) にモジュール (`@Module`) に分割すること",
+        "各モジュールは、`controllers`, `services`, `repositories` (または Prisma Client を直接使用), `dto`, `guards`, `strategies` などの関心事でファイルを整理すること",
+        "モジュール間の依存関係は、`imports` 配列で明示的に定義し、循環参照 (`Circular Dependency`) を避けるように設計すること (`forwardRef` の使用は最小限に)",
+        "複数のモジュールで共通して使用する機能 (設定、ロギング、データベース接続、共通 Pipe/Guard/Interceptor など) は `CommonModule` や `CoreModule` として定義し、`AppModule` でグローバルにインポートするか、各モジュールで個別にインポートすること"
+      ]
+    },
+    "performance": { // ★バックエンドパフォーマンス目標追加
+      "rules": [
+        "データベースクエリの最適化 (適切なインデックスの使用、N+1 問題の回避、`select` による不要なデータ取得の抑制) を常に行うこと。Prisma のクエリログや実行計画を確認すること",
+        "頻繁にアクセスされるデータや計算コストの高い処理結果については、キャッシュ戦略 (インメモリキャッシュ (`@nestjs/cache-manager`), Redis 等) を適切に導入し、レスポンスタイムを改善すること",
+        "メール送信、重いレポート生成、外部 API への長時間リクエストなど、時間のかかる処理は、メッセージキュー (例: BullMQ, RabbitMQ) を活用した非同期処理に切り出し、API レスポンスをブロックしないように設計すること",
+        "API レスポンスタイムの目標値 (P95, P99) を意識し、APM ツール (例: Datadog, Sentry) を用いてボトルネックとなっている箇所を特定・改善すること"
+      ],
+      "metrics": {
+        "response_time": {
+          "description": "API レスポンスタイムの目標値 (パーセンタイル)",
+          "p95": "500ミリ秒以下",
+          "p99": "1秒以下"
+        }
+      }
+    }
+  },
+  "api": {
+    "response_format": {
+      "name": "ApiResponse",
+      "rules": [
+        "全ての API レスポンスは、成功時・エラー時ともに共通の `ApiResponse` 形式を使用すること",
+        "成功時 (`status: 'success'`) は、`data` プロパティにレスポンスデータを含めること。データがない場合は `null` または空のオブジェクト/配列とする",
+        "エラー時 (`status: 'error'`) は、`error` プロパティに `code` (定義済みエラーコード), `message` (ユーザー向けメッセージ), `details` (任意: バリデーションエラー詳細やデバッグ情報) を含めること",
+        "エラーコード (`error.code`) は、`api.error_codes` で定義された命名規則に従い、一意な値を設定すること",
+        "HTTP ステータスコードと `ApiResponse` の内容は必ず一致させること (例: リソースが見つからない場合は HTTP 404 と `error.code: 'RESOURCE_NOT_FOUND'`)",
+        "レスポンス形式の型定義 (`ApiResponse<T>`) をバックエンド (`src/common/interfaces`) とフロントエンド (`src/types`) で共有 (`@types/shared` 等) または同期させること"
+      ],
+      "structure": {
+        "success": {
+          "status": "success",
+          "data": "T"
+        },
+        "error": {
+          "status": "error",
+          "error": {
+            "code": "string",
+            "message": "string",
+            "details": "any | null"
+          }
+        }
+      },
+      "directory": {
+        "backend": {
+          "common/interfaces": "`ApiResponse<T>` インターフェース定義",
+          "common/constants": "エラーコード (`ErrorCode`) の Enum または定数オブジェクト定義"
+        },
+        "frontend": {
+          "types": "`ApiResponse<T>`, `ErrorCode` の型定義 (バックエンドと共有推奨)",
+          "lib/api": "API クライアント実装 (`ApiResponse` を解釈し、データまたはエラーを処理)"
+        }
+      }
+    },
+    "error_codes": {
+      "rules": [
+        "エラーコードは、エラーが発生したドメインや原因を示すプレフィックスを持つこと（例: `AUTH_`, `USER_`, `PURCHASE_ORDER_`, `VALIDATION_`, `SYSTEM_`, `EXTERNAL_API_`)",
+        "エラーコードは具体的かつ一意な文字列 (UPPER_SNAKE_CASE 推奨) とし、定数 (`enum` または `const object`) として `src/common/constants/error-codes.ts` 等で一元管理すること",
+        "新しいエラーコードを追加する際は、既存のコードと重複しないように注意し、そのエラーが発生する条件と意味をドキュメントやコメントで明確にすること"
+      ]
+    }
+  },
+  "monitoring": { // ★モニタリングセクション追加
+    "description": "アプリケーション監視のための推奨ツールと基本的な方針",
+    "tools": {
+      "frontend": {
+        "error_tracking_performance": "Sentry (推奨)",
+        "analytics": "Google Analytics 4 (推奨)"
+      },
+      "backend": {
+        "apm_logging_metrics": "Datadog (推奨) または [Prometheus, Grafana, Loki/Tempo] (推奨)",
+        "database_monitoring": "Prisma Data Platform または PostgreSQL 監視ツール (例: pg_stat_statements, pgAnalyze)"
+      }
+    },
+    "rules": [
+      "本番環境および主要なテスト環境では、上記推奨ツールまたは同等の機能を持つツールを導入し、適切に設定・運用すること",
+      "フロントエンド: 未捕捉の JavaScript エラー、パフォーマンスデータ (Core Web Vitals 等) を監視ツールに送信する設定を行うこと (Sentry SDK 等)",
+      "バックエンド: アプリケーションログ、パフォーマンスメトリクス (リクエスト数、エラー率、レイテンシ、CPU/メモリ使用率等)、分散トレーシング情報を監視ツールに送信する設定を行うこと (Datadog Agent, OpenTelemetry SDK, nestjs-pino 等)",
+      "主要なビジネスプロセス (例: ユーザー登録数、購買申請数、承認率) やシステムの健全性 (エラー率、レイテンシ、リソース使用率) を示すダッシュボードを構築し、関係者間で共有すること",
+      "クリティカルなエラー発生時、パフォーマンス閾値超過時、重要なシステムイベント発生時に、開発・運用チームへアラート (Slack 通知、メール等) が通知される仕組みを構築すること"
+    ]
+  },
+  "conventions": {
+    "naming": {
+      "files": {
+        "components": "PascalCase.tsx (例: PurchaseOrderTable.tsx)",
+        "hooks": "useCamelCase.ts (例: useFetchOrders.ts)",
+        "types": "PascalCase.types.ts または interfaces.ts / types.ts (例: PurchaseOrder.types.ts)",
+        "services": "camelCase.service.ts (例: purchaseOrder.service.ts)",
+        "controllers": "camelCase.controller.ts (例: purchaseOrder.controller.ts)",
+        "modules": "camelCase.module.ts (例: purchaseOrder.module.ts)",
+        "dto": "verb-noun.dto.ts (例: create-purchase-order.dto.ts, purchase-order.dto.ts)",
+        "guards": "camelCase.guard.ts (例: roles.guard.ts)",
+        "strategies": "camelCase.strategy.ts (例: jwt.strategy.ts)"
+      },
+      "variables": {
+        "components": "PascalCase",
+        "functions": "camelCase",
+        "variables": "camelCase",
+        "constants": "UPPER_SNAKE_CASE",
+        "types": "PascalCase (Interfaces, Types, Enums)",
+        "classes": "PascalCase"
+      }
+    },
+    "code": {
+      "imports": {
+        "order": [
+          "react",
+          "next",
+          "external libraries (node_modules)",
+          "absolute paths from src/ (e.g., @/components, @/lib, src/common)",
+          "relative paths (../, ./)",
+          "type imports (import type {...})",
+          "styles (.css, .module.css)"
+        ],
+        "rules": [
+          "ESLint の `import/order` ルールに従い、自動整形 (`eslint --fix`) を活用すること",
+          "絶対パス (`@/` や `src/`) を可能な限り使用し、深い相対パス (`../../../`) を避けること (tsconfig.json の `paths` または `baseUrl` 設定を活用)"
+        ]
+      },
+      "quality": {
+        "rules": [
+          "マジックナンバーやハードコードされた文字列は避け、意味のある名前を持つ定数として定義し、適切な場所に配置すること (例: `src/lib/constants`, `src/common/constants`)",
+          "関数やメソッドは単一責任の原則 (SRP) に従い、一つのことだけを行うように設計すること。目安として、関数が長すぎる (例: 50行以上) またはネストが深すぎる (例: 3段階以上) 場合は分割を検討すること",
+          "コメントはコードで表現できない意図、背景、複雑なアルゴリズムの概要などを説明するために記述すること。コードが自明な場合はコメントを避ける",
+          "TODO コメントには、内容、担当者 (任意)、日付、関連 Issue 番号などを記載し、追跡可能にすること (例: `// TODO: (@user 2025-04-16 #123) ここに割引ロジックを追加`)"
+        ]
+      }
+    }
+  },
+  "rules": [ // ファイルパターンごとの詳細ルール (★prisma 参照強化を反映)
+    {
+      "pattern": "procure-erp-frontend/**/*.tsx",
+      "instructions": [
+        "React の関数コンポーネントのみを使用すること。クラスコンポーネントは使用しない",
+        "Next.js の App Router (`app/` ディレクトリ) の規約に従うこと。Server Components と Client Components (`'use client'`) を適切に使い分けること",
+        "スタイリングは Tailwind CSS のユーティリティクラスのみを使用し、インラインスタイル (`style` prop) や CSS Modules は原則として使用しない",
+        "UI コンポーネントは shadcn/ui を最優先で使用すること",
+        "フォームの実装には `react-hook-form` を使用し、バリデーションには `zod` スキーマと `@hookform/resolvers/zod` を組み合わせること",
+        "日付のフォーマットや操作には `date-fns` を使用し、ネイティブの `Date` オブジェクトの直接操作は避けること",
+        "グラフやチャートの描画には `recharts` を使用し、他のチャートライブラリは導入しないこと",
+        "パフォーマンス目標 (Core Web Vitals) を意識し、`React.memo`, `useMemo`, `useCallback` を必要な箇所で的確に使用すること。React DevTools Profiler 等を活用してボトルネックを特定すること",
+        "アクセシビリティ (a11y) ガイドラインに従い、セマンティック HTML と WAI-ARIA 属性を適切に使用すること"
+      ]
+    },
+    {
+      "pattern": "procure-erp-frontend/components/**/*.tsx",
+      "instructions": [
+        "コンポーネントは再利用可能で、特定の機能やコンテキストに過度に依存しないように設計すること (Presentational Components / Container Components パターンなどを参考に)",
+        "コンポーネントは原則として名前付きエクスポート (`export const MyComponent = ...`) を使用すること",
+        "コンポーネントの Props は TypeScript のインターフェースまたは型エイリアスで明確に定義し、`propTypes` は使用しない",
+        "コンポーネントの Props は可能な限り少なく保ち、複雑なオブジェクトは避けるか、適切に型定義すること",
+        "継承よりもコンポジション (Props によるコンポーネントの組み合わせや `children` prop の活用) を優先すること"
+      ]
+    },
+    {
+      "pattern": "procure-erp-frontend/hooks/**/*.ts",
+      "instructions": [
+        "カスタムフックのファイル名と関数名は `use` プレフィックスで始めること (例: `useAuth.ts`, `export function useAuth() { ... }`)",
+        "カスタムフックは、特定の関心事やロジックをカプセル化し、単一の責任を持つように設計すること",
+        "カスタムフック内での直接的な DOM 操作 (`document.getElementById` など) は避け、React の `state` や `ref` を介して行うこと"
+      ]
+    },
+    {
+      "pattern": "procure-erp-backend/**/*.ts", // ★ Prisma 参照指示追加
+      "instructions": [
+        "NestJS の推奨されるモジュール構造 (`controllers`, `services`, `modules`, `dto` 等) に従うこと",
+        "**指示:** コードを記述する前に、まず `procure-erp-backend/prisma/schema.prisma` を確認し、関連するモデル定義を理解してください。",
+        "実装は、`schema.prisma` で定義されたデータ構造と完全に一致している必要があります。",
+        "データベース操作は Prisma Client (`@prisma/client`) を使用して行うこと。他の ORM (TypeORM, Sequelize 等) は使用しない",
+        "DTO (Data Transfer Object) を定義し、`class-validator` デコレータを用いて入力データのバリデーションを必ず行うこと",
+        "エラーハンドリングは NestJS の例外フィルター (`@Catch`) や組み込み HTTP 例外 (`HttpException`, `NotFoundException` 等) を使用して、`ApiResponse` 形式で一貫性のあるエラーレスポンスを返すこと",
+        "非同期処理 (データベースアクセス、外部 API 呼び出し等) には必ず `async/await` パターンを使用すること",
+        "認証には `@nestjs/passport` と `@nestjs/jwt` を使用し、Passport ストラテジー (`JwtStrategy`) を正しく実装すること",
+        "設定値 (データベース接続情報、JWT シークレット等) は `@nestjs/config` を使用して環境変数から読み込むこと。コードへのハードコーディングは禁止",
+        "依存性の注入 (DI) を積極的に活用し、クラス間の結合度を低く保つこと"
+      ]
+    },
+    {
+      "pattern": "procure-erp-backend/**/*.controller.ts",
+      "instructions": [
+        "各エンドポイントには明確な HTTP メソッドデコレータ (`@Get`, `@Post`, `@Put`, `@Delete`, `@Patch` 等) とルートパスを定義すること",
+        "コントローラーの責務は、HTTP リクエストを受け取り、DTO バリデーションを行い、適切なサービスメソッドを呼び出し、結果を `ApiResponse` 形式で返すことに限定すること。ビジネスロジックをコントローラー内に実装しないこと",
+        "HTTP ステータスコードを適切に返すこと (例: 成功時 200/201, クライアントエラー時 400/401/403/404/422, サーバーエラー時 500)",
+        "API ドキュメント生成のため、Swagger デコレータ (`@ApiTags`, `@ApiOperation`, `@ApiResponse`, `@ApiBody`, `@ApiParam`, `@ApiQuery`, `@ApiProperty` 等) を必ず使用し、情報を充実させること",
+        "認証が必要なエンドポイントには `@UseGuards(AuthGuard('jwt'))` を、ロールベースのアクセス制御が必要な場合は `@Roles` デコレータと `RolesGuard` を適用すること",
+        "必要に応じてレート制限 (`@UseGuards(ThrottlerGuard)`) や CSRF 保護を適用すること"
+      ]
+    },
+    {
+      "pattern": "procure-erp-backend/**/*.service.ts", // ★ Prisma 参照指示追加
+      "instructions": [
+        "サービスクラスは、特定のドメインや機能に関するビジネスロジックの実装に集中すること",
+        "データベース操作は、注入された Prisma Client (`PrismaService`) を通じて行うこと (リポジトリパターンを採用する場合はリポジトリを注入)",
+        "データベース操作を行う際は、`schema.prisma` で定義されたモデル構造 (フィールド名、型、リレーション) を前提として Prisma Client のメソッド (`findUnique`, `findMany`, `create`, `update` 等) を使用すること。",
+        "リレーションを含むデータ操作では、Prisma Client の `include` や `select` オプションを適切に利用し、`schema.prisma` のリレーション定義に従うこと。",
+        "Prisma Client のメソッドに渡すデータ (例: `create` や `update` の `data` オブジェクト) は、`schema.prisma` のモデルフィールドと型に一致させること。",
+        "メソッドは原則として非同期 (`async`) とし、`Promise` を返すこと。戻り値の型は TypeScript のインターフェースや型エイリアスで明示的に定義すること",
+        "複数のデータベース操作を伴う処理で原子性が必要な場合は、Prisma のトランザクション機能 (`prisma.$transaction([...])` または Interactive Transactions) を使用すること",
+        "エラーが発生した場合は、ビジネスロジックに応じた適切な HTTP 例外 (`NotFoundException`, `BadRequestException`, `ForbiddenException`, `ConflictException` 等) をスローし、コントローラーや例外フィルターで処理されるようにすること",
+        "ログ出力ガイドラインに従い、処理の要所やエラー発生時にログを出力すること"
+      ]
+    },
+    {
+      "pattern": "procure-erp-backend/**/*.dto.ts", // ★ Prisma 参照指示追加
+      "instructions": [
+        "DTO クラスの各プロパティには、`class-validator` のデコレータ (`@IsString`, `@IsInt`, `@IsNotEmpty`, `@IsOptional`, `@ValidateNested`, `@IsEmail`, `@MinLength` 等) を用いてバリデーションルールを必ず定義すること",
+        "DTO のプロパティ定義は、原則として `procure-erp-backend/prisma/schema.prisma` の対応するモデルのフィールド定義 (名前、型) に基づくこと。",
+        "モデルのフィールドをそのまま公開しない場合や、追加のバリデーション/変換が必要な場合に限り、DTO で調整すること (`@Expose`, `@Exclude`, `@Transform` from `class-transformer` を活用)。",
+        "リクエスト/レスポンスでネストしたデータ構造を扱う場合、関連するモデルの DTO を作成し、`@ValidateNested({ each: true })` や `@Type(() => NestedDto)` を適切に使用すること。",
+        "Swagger ドキュメント生成のため、各プロパティに `@ApiProperty()` デコレータを付与し、`description`, `example`, `required`, `type`, `enum` などの情報を記述すること",
+        "必須項目には `@IsNotEmpty()` を、任意項目には `@IsOptional()` を明示的に指定すること",
+        "`@ApiProperty` の `description` には日本語で分かりやすい説明を記述すること"
+      ]
+    },
+    {
+      "pattern": "procure-erp-backend/prisma/schema.prisma", // ★ Prisma Migrate 指示追加
+      "instructions": [
+        "このファイルはデータベース構造とデータモデルの根幹です。変更はアプリケーション全体に影響するため、関連コード (Service, DTO, テスト等) との整合性を保つように注意してください。",
+        "モデル間のリレーション (`@relation`) と必要なインデックス (`@@index`, `@@unique`) を明示的に定義し、パフォーマンスを考慮すること",
+        "データベーススキーマは正規化を基本としつつ、クエリのパフォーマンスを考慮して非正規化も検討すること",
+        "データベースのテーブル名およびカラム名にはスネークケース (`snake_case`) を使用すること (`@@map`, `@map` を使用)",
+        "多くのモデルには、作成日時 (`created_at`, `@default(now())`) と更新日時 (`updated_at`, `@updatedAt`) のタイムスタンプカラムを含めること",
+        "論理削除 (ソフトデリート) が必要な場合は、`deleted_at` (DateTime?) や `is_deleted` (Boolean) などのフラグカラムを追加し、Prisma Middleware 等でクエリをフックすることを検討すること",
+        "スキーマ変更後は、必ず `npx prisma generate` を実行して Prisma Client を更新してください。",
+        "データベーススキーマへの変更反映は `npx prisma migrate dev --name <migration_name>` (開発時) または `npx prisma migrate deploy` (本番) コマンドを使用してください。"
+      ]
+    },
+    {
+      "pattern": "**/*.test.ts",
+      "instructions": [
+        "テストは Jest を使用し、AAA (Arrange-Act-Assert) パターンに従って記述すること",
+        "テスト対象が依存する外部サービス、データベース、他のモジュール等は、Jest のモック機能 (`jest.fn()`, `jest.spyOn()`, `jest.mock()`) を使用して適切にモック化すること。ユニットテストでは外部依存性を完全に排除する",
+        "テストケース名は、テストの目的や検証内容が明確にわかるように具体的に記述すること (例: `it('should throw NotFoundException when purchase order does not exist')`)",
+        "テストスイート (`describe`) は機能やコンポーネント単位で分割し、関連するテストケースをまとめること",
+        "モックデータや共通のセットアップ/ティアダウン処理は、`beforeEach`, `afterEach`, `beforeAll`, `afterAll` や共通のモックファクトリ関数を使用して整理すること",
+        "正常系だけでなく、異常系 (不正な入力、エラー発生時など) や境界値 (空配列、ゼロ、最大値など) も考慮したテストケースを作成すること"
+      ]
+    },
+    {
+      "pattern": "docker-compose*.yml",
+      "instructions": [
+        "開発 (`docker-compose.yml`), テスト (`docker-compose.test.yml` 等), 本番 (`docker-compose.prod.yml` 等) など、環境ごとにファイルを分離するか、オーバーライド (`extends`) を活用して設定を管理すること",
+        "使用する Docker イメージのタグは明示的に指定し (`latest` は避ける)、再現性を確保すること",
+        "データベース接続情報、APIキー、JWTシークレットなどの設定値は、環境変数ファイル (`.env`) を参照する形でコンテナに渡すこと"
+      ]
+    },
+    {
+      "pattern": "**/*", // 最も広範なパターン (最後に配置)
+      "instructions": [
+        "`any` 型の使用を避け、常に明示的な型 (`string`, `number`, インターフェース, 型エイリアス, `unknown`) を定義すること。型推論が可能な場合はそれに従う",
+        "設定済みの ESLint (`eslint . --fix`) と Prettier (`prettier --write .`) のルールに厳密に従うこと。CI/CD パイプラインで Lint と Format のチェックを強制すること",
+        "読みやすく、理解しやすく、保守しやすいコードを記述することを常に心がけること (意味のある変数名・関数名、一貫性のあるインデント・フォーマット、適切なコメント、コードの構造化)",
+        "複数の箇所で利用されるロジックや値は、共通の関数や定数として抽出し、再利用性を高めること (DRY: Don't Repeat Yourself)",
+        "予期せぬエラーが発生した場合でもアプリケーションがクラッシュしないよう、適切なエラーハンドリング (`try...catch`, Promise の `.catch()`, NestJS 例外フィルター等) を実装すること",
+        "必要に応じて JSDoc や TSDoc 形式のドキュメンテーションコメントを追加し、関数、クラス、型、複雑なロジックの目的や使用方法を説明すること"
+      ]
+    }
+  ]
+}
