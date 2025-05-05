@@ -1,122 +1,162 @@
-import { Controller, Post, Body, Res, HttpStatus, UseGuards, Get } from '@nestjs/common';
+import { Controller, Post, Body, Res, Logger } from '@nestjs/common';
 import { Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/auth.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
-import { LocalAuthGuard } from './guards/local-auth.guard';
+import { ApiResponse } from '../../common/interfaces/api-response.interface';
 
+/**
+ * Authentication controller
+ *
+ * All endpoints return a unified ApiResponse structure.
+ */
 @Controller('auth')
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(private readonly authService: AuthService) {}
 
+  /**
+   * Login endpoint
+   */
   @Post('login')
-  async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) response: Response) {
+  async login(
+    @Body() loginDto: LoginDto,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<ApiResponse<{ user: any; accessToken: string; refreshToken?: string }>> {
+    this.logger.log(`Login request received for user: ${loginDto.username}`);
+
     try {
-      console.log('=== ログインリクエスト受信 ===');
-      console.log('リクエスト詳細:', { 
-        username: loginDto.username, 
-        passwordLength: loginDto.password?.length || 0,
-        rememberMe: loginDto.rememberMe 
-      });
-      console.log('リクエストヘッダー:', JSON.stringify(response.req.headers));
-      
-      const validationResult = await this.authService.validateUser(loginDto.username, loginDto.password);
-      console.log('ユーザー検証結果:', validationResult ? '成功' : '失敗');
-      if (validationResult) {
-        console.log('検証成功ユーザー情報:', JSON.stringify(validationResult));
-      }
-      
-      if (!validationResult) {
-        console.log('ユーザー検証に失敗しました。ログイン処理を中止します。');
-        return { 
-          success: false, 
-          message: 'ユーザー名またはパスワードが正しくありません', 
-          code: 'INVALID_CREDENTIALS',
-          user: null
+      // AuthService に委譲
+      const result = await this.authService.login(loginDto);
+
+      if (!result.success) {
+        this.logger.warn(`Invalid credentials for user: ${loginDto.username}`);
+        return {
+          status: 'error',
+          error: {
+            code: result.code ?? 'INVALID_CREDENTIALS',
+            message: result.message ?? 'ユーザー名またはパスワードが正しくありません',
+          },
         };
       }
-      
-      const result = await this.authService.login(loginDto);
-      console.log('認証結果:', { success: !!result, hasUser: !!result.user });
-      
+
+      // Cookie 設定
       response.cookie('token', result.accessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
-        maxAge: loginDto.rememberMe ? 7 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000,
+        maxAge: loginDto.rememberMe
+          ? 7 * 24 * 60 * 60 * 1000 // 7 days
+          : 24 * 60 * 60 * 1000,   // 24 hours
       });
-      console.log('アクセストークンCookie設定完了');
-      
+
       if (result.refreshToken) {
         response.cookie('refresh_token', result.refreshToken, {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'strict',
-          maxAge: 30 * 24 * 60 * 60 * 1000, // 30日間
+          maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
         });
-        console.log('リフレッシュトークンCookie設定完了');
       }
-      
-      console.log('ログイン成功レスポンス送信');
-      return { 
-        success: true,
-        user: result.user
+
+      this.logger.log(`Login succeeded for user: ${loginDto.username}`);
+      return {
+        status: 'success',
+        data: {
+          user: result.user,
+          accessToken: result.accessToken,
+          refreshToken: result.refreshToken,
+        },
       };
     } catch (error) {
-      console.error('ログインエラー詳細:', error);
-      return { 
-        success: false, 
-        message: 'ログインに失敗しました', 
-        code: 'LOGIN_FAILED',
-        user: null // nullユーザーを明示的に返す
+      this.logger.error('Login error', error instanceof Error ? error.stack : undefined);
+      return {
+        status: 'error',
+        error: {
+          code: 'LOGIN_FAILED',
+          message: 'ログインに失敗しました',
+        },
       };
     }
   }
 
+  /**
+   * Refresh JWT tokens using a refresh token.
+   */
   @Post('refresh')
-  async refreshToken(@Body() refreshTokenDto: RefreshTokenDto, @Res({ passthrough: true }) response: Response) {
+  async refreshToken(
+    @Body() refreshTokenDto: RefreshTokenDto,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<ApiResponse<{ user: any; accessToken: string; refreshToken?: string }>> {
+    this.logger.log('Token refresh request received');
+
     try {
       const result = await this.authService.refreshToken(refreshTokenDto.refreshToken);
-      
+
+      if (!result.success) {
+        return {
+          status: 'error',
+          error: {
+            code: result.code ?? 'TOKEN_REFRESH_FAILED',
+            message: result.message ?? 'トークンの更新に失敗しました',
+          },
+        };
+      }
+
       response.cookie('token', result.accessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
-        maxAge: 24 * 60 * 60 * 1000, // 24時間
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
       });
-      
+
       if (result.refreshToken) {
         response.cookie('refresh_token', result.refreshToken, {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'strict',
-          maxAge: 30 * 24 * 60 * 60 * 1000, // 30日間
+          maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
         });
       }
-      
-      return { 
-        success: true,
-        user: result.user
+
+      return {
+        status: 'success',
+        data: {
+          user: result.user,
+          accessToken: result.accessToken,
+          refreshToken: result.refreshToken,
+        },
       };
     } catch (error) {
-      console.error('Token refresh error:', error);
-      return { 
-        success: false, 
-        message: 'トークンの更新に失敗しました', 
-        code: 'TOKEN_REFRESH_FAILED',
-        user: null
+      this.logger.error('Token refresh error', error instanceof Error ? error.stack : undefined);
+      return {
+        status: 'error',
+        error: {
+          code: 'TOKEN_REFRESH_FAILED',
+          message: 'トークンの更新に失敗しました',
+        },
       };
     }
   }
 
+  /**
+   * Logout endpoint – clears authentication cookies.
+   */
   @Post('logout')
-  async logout(@Res({ passthrough: true }) response: Response) {
+  async logout(
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<ApiResponse<{ message: string }>> {
     response.clearCookie('token');
     response.clearCookie('refresh_token');
-    
-    return { 
-      success: true,
-      message: 'ログアウトしました'
+
+    this.logger.log('User logged out');
+
+    return {
+      status: 'success',
+      data: {
+        message: 'ログアウトしました',
+      },
     };
   }
 }

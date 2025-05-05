@@ -1,0 +1,12 @@
+# === Backend build output ===
+procure-erp-backend/dist/
+
+# === Frontend build output (.next) ===
+procure-erp-frontend/.next/
+
+# === Node ===
+**/node_modules/
+
+# === Env files ===
+*.env
+*.env.*          # .env.local など
