@@ -24,13 +24,37 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
       
+      // デバッグ用：例外レスポンスの構造を確認
+      console.log('Exception response structure:', JSON.stringify(exceptionResponse, null, 2));
+      
       if (typeof exceptionResponse === 'object') {
         const error = exceptionResponse as Record<string, any>;
-        errorResponse.error = {
-          code: error.code || this.getErrorCodeFromStatus(status),
-          message: error.message || '処理に失敗しました',
-          details: error.details,
-        };
+        
+        // バリデーションエラーの特別処理
+        if (status === 422 || status === 400) {
+          // ValidationPipeから返される構造を確認
+          if (error.error && error.error.details) {
+            // すでに適切な形式になっている場合
+            errorResponse.error = error.error;
+          } else if (error.status === 'error' && error.error) {
+            // 新しいバリデーションパイプの形式
+            errorResponse.error = error.error;
+          } else {
+            // その他のケース（旧形式など）
+            errorResponse.error = {
+              code: 'VALIDATION_ERROR',
+              message: '入力値の検証に失敗しました',
+              details: error.details || error.message || error,
+            };
+          }
+        } else {
+          // その他のHTTPエラー
+          errorResponse.error = {
+            code: error.code || this.getErrorCodeFromStatus(status),
+            message: error.message || '処理に失敗しました',
+            details: error.details,
+          };
+        }
       } else {
         errorResponse.error = {
           code: this.getErrorCodeFromStatus(status),

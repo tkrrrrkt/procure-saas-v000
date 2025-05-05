@@ -1,18 +1,21 @@
 // src/core/auth/dto/auth.dto.ts
 
-import { IsString, IsBoolean, IsOptional, MinLength, MaxLength } from 'class-validator';
+import { IsString, IsBoolean, IsOptional, MinLength, MaxLength, IsNotEmpty } from 'class-validator';
+import { ValidationMessages } from '../../../common/validation/validation-messages';
 
 export class LoginDto {
-  @IsString({ message: 'ユーザー名は文字列で入力してください' })
-  @MinLength(3, { message: 'ユーザー名は最低3文字以上必要です' })
-  @MaxLength(50, { message: 'ユーザー名は最大50文字までです' })
+  @IsNotEmpty({ message: ValidationMessages.required('ユーザー名') })
+  @IsString({ message: ValidationMessages.pattern('ユーザー名') })
+  @MinLength(3, { message: ValidationMessages.minLength('ユーザー名', 3) })
+  @MaxLength(50, { message: ValidationMessages.maxLength('ユーザー名', 50) })
   username: string;
 
-  @IsString({ message: 'パスワードは文字列で入力してください' })
-  @MinLength(4, { message: 'パスワードは最低6文字以上必要です' })
+  @IsNotEmpty({ message: ValidationMessages.required('パスワード') })
+  @IsString({ message: ValidationMessages.pattern('パスワード') })
+  @MinLength(4, { message: ValidationMessages.minLength('パスワード', 4) })
   password: string;
 
-  @IsBoolean({ message: 'ログイン状態の保持は真偽値で指定してください' })
+  @IsBoolean({ message: ValidationMessages.boolean('ログイン状態の保持') })
   @IsOptional()
   rememberMe: boolean = false;
 }
