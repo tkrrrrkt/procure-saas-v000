@@ -1,16 +1,17 @@
-import type React from "react"
-import "./globals.css"
-import { Inter } from "next/font/google"
-import { ThemeProvider } from "@/components/theme-provider"
-import { AuthProvider } from "@/contexts/AuthContext"
-import { Toaster } from "@/components/ui/toaster"
+// app/layout.tsx
+import type React from 'react'
+import './globals.css'
+import { Inter } from 'next/font/google'
+import { ThemeProvider } from '@/components/theme-provider'
+import { Toaster } from '@/components/ui/toaster'
+// ✅ AuthProvider は不要になったので import を削除
 
-const inter = Inter({ subsets: ["latin"] })
+const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
-  title: "ProcureERP - Modern Purchasing Management",
-  description: "Enterprise purchasing management system",
-  generator: 'v0.dev'
+  title: 'ProcureERP - Modern Purchasing Management',
+  description: 'Enterprise purchasing management system',
+  generator: 'v0.dev',
 }
 
 export default function RootLayout({
@@ -21,11 +22,17 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-          <AuthProvider>
-            {children}
-            <Toaster />
-          </AuthProvider>
+        {/* テーマ切り替えだけをグローバルに提供 */}
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {/* Zustand ストアは React Tree のどこでも直接 useAuth() で読めるので
+              追加の Provider は不要 */}
+          {children}
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

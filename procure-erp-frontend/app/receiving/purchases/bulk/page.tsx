@@ -40,7 +40,7 @@ interface PurchaseOrderItem {
   selected: boolean
 }
 
-export default function BulkPurchasePage() {
+function BulkPurchasePage() {
   const [date, setDate] = useState<Date>()
   const [employee, setEmployee] = useState("")
   const [employeeOpen, setEmployeeOpen] = useState(false)
@@ -691,5 +691,10 @@ export default function BulkPurchasePage() {
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
-        </Aler
+        </AlertDialogContent>  {/* ← 追加 */}
+      </AlertDialog>            {/* ← 追加 */}
+    </div>
+  )
+}
 
+export default BulkPurchasePage   // ← これも末尾にあるか確認

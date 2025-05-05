@@ -14,3 +14,4 @@ npm install cookie-parser
 npm install @types/bcrypt 
 npm install @types/passport-local 
 npm install @types/cookie-parser --save-dev
+npm install joi

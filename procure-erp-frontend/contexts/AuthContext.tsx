@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
-import { login as apiLogin, refreshToken, logout as apiLogout } from '@/lib/api/auth';
+import { authApi } from '@/lib/api/auth';          // ← 変更
 
 export interface User {
   id: string;
@@ -23,34 +23,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  /* 初期化 ------------------------------------------------------------- */
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const storedUser = localStorage.getItem('user');
-        const accessToken = localStorage.getItem('accessToken');
-        
+        const storedUser    = localStorage.getItem('user');
+        const accessToken   = localStorage.getItem('accessToken');
+
         if (storedUser && accessToken) {
           setUser(JSON.parse(storedUser));
-        } else {
-          const refreshTokenValue = localStorage.getItem('refreshToken');
-          if (refreshTokenValue) {
-            const result = await refreshToken(refreshTokenValue);
-            if (result.success && result.user) {
-              setUser(result.user);
-              localStorage.setItem('user', JSON.stringify(result.user));
-              if (result.accessToken) {
-                localStorage.setItem('accessToken', result.accessToken);
-              }
-              if (result.refreshToken) {
-                localStorage.setItem('refreshToken', result.refreshToken);
-              }
-            } else {
-              clearAuthData();
-            }
+          return;
+        }
+
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (refreshToken) {
+          const result = await authApi.refreshToken(refreshToken);
+          if (result.user) {
+            persistAuth(result);
+            return;
           }
         }
-      } catch (error) {
-        console.error('認証初期化エラー:', error);
+
+        clearAuthData(); // 失敗時
+      } catch (err) {
+        console.error('認証初期化エラー:', err);
         clearAuthData();
       } finally {
         setLoading(false);
@@ -60,6 +56,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     initAuth();
   }, []);
 
+  /* ヘルパ ------------------------------------------------------------- */
+  const persistAuth = (res: { user: User; accessToken: string | null; refreshToken: string | null }) => {
+    setUser(res.user);
+    localStorage.setItem('user', JSON.stringify(res.user));
+    if (res.accessToken)  localStorage.setItem('accessToken',  res.accessToken);
+    if (res.refreshToken) localStorage.setItem('refreshToken', res.refreshToken);
+  };
+
   const clearAuthData = () => {
     setUser(null);
     localStorage.removeItem('user');
@@ -67,47 +71,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem('refreshToken');
   };
 
-  const handleLogin = async (username: string, password: string, rememberMe: boolean): Promise<boolean> => {
+  /* ログイン ----------------------------------------------------------- */
+  const handleLogin = async (
+    username: string,
+    password: string,
+    rememberMe: boolean
+  ): Promise<boolean> => {
     try {
       setLoading(true);
-      const response = await apiLogin(username, password, rememberMe);
-      
-      if (response.success && response.user) {
-        setUser(response.user);
-        localStorage.setItem('user', JSON.stringify(response.user));
-        
-        if (response.accessToken) {
-          localStorage.setItem('accessToken', response.accessToken);
-        }
-        
-        if (response.refreshToken) {
-          localStorage.setItem('refreshToken', response.refreshToken);
-        }
-        
+      const res = await authApi.login(username, password, rememberMe);
+
+      if (res.user) {
+        persistAuth(res);
         return true;
       }
-      
       return false;
-    } catch (error) {
-      console.error('ログインエラー:', error);
+    } catch (err) {
+      console.error('ログインエラー:', err);
       return false;
     } finally {
       setLoading(false);
     }
   };
 
+  /* ログアウト --------------------------------------------------------- */
   const handleLogout = async (): Promise<void> => {
     try {
       setLoading(true);
-      await apiLogout();
-    } catch (error) {
-      console.error('ログアウトエラー:', error);
+      await authApi.logout();
+    } catch (err) {
+      console.error('ログアウトエラー:', err);
     } finally {
       clearAuthData();
       setLoading(false);
     }
   };
 
+  /* ------------------------------------------------------------------- */
   return (
     <AuthContext.Provider
       value={{
