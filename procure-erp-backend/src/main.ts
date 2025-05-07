@@ -4,6 +4,7 @@ import * as cookieParser from 'cookie-parser';
 import { ValidationPipe } from './common/pipes/validation.pipe'; 
 import { Logger } from '@nestjs/common';
 import helmet from 'helmet';  // デフォルトインポートに変更
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -66,9 +67,47 @@ async function bootstrap() {
     next();
   });
   
+  // Swagger設定
+  const config = new DocumentBuilder()
+    .setTitle('購買管理SaaS API')
+    .setDescription('購買管理システム向けのRESTful APIインターフェース')
+    .setVersion('1.0')
+    .addTag('auth', '認証関連API')
+    .addTag('users', 'ユーザー管理API')
+    .addTag('organizations', '組織管理API')
+    .addTag('purchase-requests', '購買依頼API')
+    .addTag('purchase-orders', '発注管理API')
+    .addTag('vendors', 'ベンダー管理API')
+    .addTag('inventory', '在庫管理API')
+    .addTag('receiving', '入荷管理API')
+    .addTag('invoice-matching', '請求書照合API')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'JWT',
+        description: 'JWTアクセストークンを入力してください',
+        in: 'header',
+      },
+      'access-token', // この名前は後でコントローラーで参照できます
+    )
+    .build();
+  
+  const document = SwaggerModule.createDocument(app, config);
+  
+  // Swaggerのセキュリティ設定（本番環境ではBasic認証などで保護することも検討）
+  SwaggerModule.setup('api-docs', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
+    customSiteTitle: '購買管理SaaS API Documentation',
+  });
+  
   // ポート設定（環境変数を使用）
   const port = process.env.PORT || 3001;
   await app.listen(port);
   logger.log(`アプリケーションが起動しました: ${await app.getUrl()}`);
+  logger.log(`Swaggerドキュメントは次のURLで利用可能です: ${await app.getUrl()}/api-docs`);
 }
 bootstrap();

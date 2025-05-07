@@ -1,16 +1,25 @@
-import { Controller, Post, Body, Req, Res, Logger } from '@nestjs/common';
+import { Controller, Post, Body, Req, Res, Logger, Get } from '@nestjs/common';
 import { Response, Request } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/auth.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ApiResponse } from '../../common/interfaces/api-response.interface';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
+import { 
+  ApiTags, 
+  ApiOperation, 
+  ApiResponse as SwaggerResponse, 
+  ApiBearerAuth, 
+  ApiBody, 
+  ApiCookieAuth 
+} from '@nestjs/swagger';
 
 /**
  * Authentication controller
  *
  * All endpoints return a unified ApiResponse structure.
  */
+@ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
@@ -21,6 +30,49 @@ export class AuthController {
    * Login endpoint
    * レート制限: 10リクエスト/分（デフォルトよりも厳しく）
    */
+  @ApiOperation({ summary: 'ユーザーログイン', description: 'ユーザー名とパスワードでログイン認証を行い、JWTトークンを発行します' })
+  @ApiBody({ type: LoginDto })
+  @SwaggerResponse({ 
+    status: 200, 
+    description: 'ログイン成功', 
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', example: 'success' },
+        data: { 
+          type: 'object',
+          properties: {
+            user: { 
+              type: 'object', 
+              properties: {
+                id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+                username: { type: 'string', example: 'user123' },
+                role: { type: 'string', example: 'USER' }
+              }
+            },
+            accessToken: { type: 'string', example: 'eyJhbGciOiJIUzI1...' }
+          }
+        }
+      }
+    }
+  })
+  @SwaggerResponse({ 
+    status: 401, 
+    description: '認証失敗', 
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', example: 'error' },
+        error: { 
+          type: 'object',
+          properties: {
+            code: { type: 'string', example: 'INVALID_CREDENTIALS' },
+            message: { type: 'string', example: 'ユーザー名またはパスワードが正しくありません' }
+          }
+        }
+      }
+    }
+  })
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('login')
   async login(
@@ -94,6 +146,50 @@ export class AuthController {
    * Refresh JWT tokens using a refresh token.
    * レート制限: 30リクエスト/分（デフォルトよりも緩く）
    */
+  @ApiOperation({ summary: 'トークンのリフレッシュ', description: 'リフレッシュトークンを使用して新しいアクセストークンを取得します' })
+  @ApiCookieAuth('refresh_token')
+  @ApiBody({ type: RefreshTokenDto, required: false, description: 'Cookieがない場合にリクエストボディでリフレッシュトークンを指定可能' })
+  @SwaggerResponse({ 
+    status: 200, 
+    description: 'トークンリフレッシュ成功', 
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', example: 'success' },
+        data: { 
+          type: 'object',
+          properties: {
+            user: { 
+              type: 'object', 
+              properties: {
+                id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+                username: { type: 'string', example: 'user123' },
+                role: { type: 'string', example: 'USER' }
+              }
+            },
+            accessToken: { type: 'string', example: 'eyJhbGciOiJIUzI1...' }
+          }
+        }
+      }
+    }
+  })
+  @SwaggerResponse({ 
+    status: 401, 
+    description: 'リフレッシュトークンが無効', 
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', example: 'error' },
+        error: { 
+          type: 'object',
+          properties: {
+            code: { type: 'string', example: 'TOKEN_REFRESH_FAILED' },
+            message: { type: 'string', example: 'トークンの更新に失敗しました' }
+          }
+        }
+      }
+    }
+  })
   @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Post('refresh')
   async refreshToken(
@@ -175,7 +271,26 @@ export class AuthController {
    * Logout endpoint – clears authentication cookies.
    * レート制限を適用しない
    */
+  @ApiOperation({ summary: 'ログアウト', description: '認証用Cookieを削除してログアウト状態にします' })
+  @ApiCookieAuth('token')
+  @SwaggerResponse({ 
+    status: 200, 
+    description: 'ログアウト成功', 
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', example: 'success' },
+        data: { 
+          type: 'object',
+          properties: {
+            message: { type: 'string', example: 'ログアウトしました' }
+          }
+        }
+      }
+    }
+  })
   @SkipThrottle()
+  @Post('logout')
   async logout(
     @Res({ passthrough: true }) response: Response,
   ): Promise<ApiResponse<{ message: string }>> {
@@ -201,6 +316,61 @@ export class AuthController {
       status: 'success',
       data: {
         message: 'ログアウトしました',
+      },
+    };
+  }
+
+  /**
+   * Check auth status endpoint
+   */
+  @ApiOperation({ summary: '認証状態の確認', description: '現在のユーザーの認証状態を確認します' })
+  @ApiBearerAuth('access-token')
+  @SwaggerResponse({ 
+    status: 200, 
+    description: '認証状態確認成功', 
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', example: 'success' },
+        data: { 
+          type: 'object',
+          properties: {
+            authenticated: { type: 'boolean', example: true }
+          }
+        }
+      }
+    }
+  })
+  @SwaggerResponse({ 
+    status: 401, 
+    description: '未認証', 
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', example: 'error' },
+        error: { 
+          type: 'object',
+          properties: {
+            code: { type: 'string', example: 'UNAUTHORIZED' },
+            message: { type: 'string', example: '認証されていません' }
+          }
+        }
+      }
+    }
+  })
+  @SkipThrottle()
+  @Get('check')
+  async checkAuth(
+    @Req() request: Request,
+  ): Promise<ApiResponse<{ authenticated: boolean }>> {
+    // JWTストラテジーで認証されていればtrueが返る
+    // 実際の実装ではJWTGuardを使用する
+    const isAuthenticated = !!request.cookies['token'];
+
+    return {
+      status: 'success',
+      data: {
+        authenticated: isAuthenticated
       },
     };
   }

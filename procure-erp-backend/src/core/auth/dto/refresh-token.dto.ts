@@ -1,22 +1,26 @@
-// src/core/auth/dto/refresh-token.dto.ts
-import { IsNotEmpty, IsString } from 'class-validator';
-import { ValidationMessages } from '../../../common/validation/validation-messages';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsOptional } from 'class-validator';
 
 export class RefreshTokenDto {
-  @IsNotEmpty({ message: ValidationMessages.required('リフレッシュトークン') })
+  @ApiProperty({ 
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', 
+    description: 'リフレッシュトークン（Cookieに保存されていない場合に使用）',
+    required: false
+  })
   @IsString()
-  refreshToken: string;
+  @IsOptional()
+  refreshToken?: string;
 }
 
-export class RefreshTokenResponseDto {
+export interface RefreshTokenResponseDto {
   success: boolean;
-  accessToken: string | null;
-  refreshToken: string | null;
+  message?: string;
+  code?: string;
   user: {
     id: string;
     username: string;
     role: string;
   } | null;
-  message?: string;
-  code?: string;
+  accessToken: string | null;
+  refreshToken: string | null;
 }
