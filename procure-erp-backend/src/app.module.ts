@@ -1,4 +1,4 @@
-import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer, RequestMethod } from '@nestjs/common';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -15,6 +15,7 @@ import { UsersModule }    from './modules/users/users.module';
 import { HealthCheckModule } from './modules/health-check/health-check.module';
 import { CsrfMiddleware } from './common/middleware/csrf.middleware';
 import { CsrfModule } from './common/csrf/csrf.module';
+import { ThrottlerModule } from './common/throttler/throttler.module';
 
 @Module({
   imports: [
@@ -27,14 +28,16 @@ import { CsrfModule } from './common/csrf/csrf.module';
     UsersModule,
     HealthCheckModule,
     CsrfModule,           // 新しく追加したCSRFモジュール
+    ThrottlerModule,      // レート制限モジュール
   ],
   controllers: [AppController],
   providers:   [AppService],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
+    // すべてのAPIパスに対してCSRFミドルウェアを適用
     consumer
       .apply(CsrfMiddleware)
-      .forRoutes('*'); // すべてのルートに適用
+      .forRoutes({ path: 'auth/*', method: RequestMethod.ALL });  // 特定のパスだけに適用
   }
 }

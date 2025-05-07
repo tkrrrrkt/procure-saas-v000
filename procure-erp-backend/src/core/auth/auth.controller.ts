@@ -1,9 +1,10 @@
-import { Controller, Post, Body, Res, Logger } from '@nestjs/common';
-import { Response } from 'express';
+import { Controller, Post, Body, Req, Res, Logger } from '@nestjs/common';
+import { Response, Request } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/auth.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ApiResponse } from '../../common/interfaces/api-response.interface';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 
 /**
  * Authentication controller
@@ -18,7 +19,9 @@ export class AuthController {
 
   /**
    * Login endpoint
+   * レート制限: 10リクエスト/分（デフォルトよりも厳しく）
    */
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('login')
   async login(
     @Body() loginDto: LoginDto,
@@ -89,7 +92,9 @@ export class AuthController {
 
   /**
    * Refresh JWT tokens using a refresh token.
+   * レート制限: 30リクエスト/分（デフォルトよりも緩く）
    */
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Post('refresh')
   async refreshToken(
     @Body() refreshTokenDto: RefreshTokenDto,
@@ -168,8 +173,9 @@ export class AuthController {
 
   /**
    * Logout endpoint – clears authentication cookies.
+   * レート制限を適用しない
    */
-  @Post('logout')
+  @SkipThrottle()
   async logout(
     @Res({ passthrough: true }) response: Response,
   ): Promise<ApiResponse<{ message: string }>> {

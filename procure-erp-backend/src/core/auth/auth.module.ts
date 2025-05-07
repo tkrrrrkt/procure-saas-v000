@@ -9,6 +9,9 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
 import { DatabaseModule } from '../database/database.module';
+import { ThrottlerModule } from '../../common/throttler/throttler.module';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard } from '@nestjs/throttler';
 
 @Module({
   imports: [
@@ -23,9 +26,18 @@ import { DatabaseModule } from '../database/database.module';
       }),
     }),
     DatabaseModule,
+    ThrottlerModule, // レート制限モジュールを追加
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, LocalStrategy],
+  providers: [
+    AuthService, 
+    JwtStrategy, 
+    LocalStrategy,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
   exports: [AuthService],
 })
 export class AuthModule {}

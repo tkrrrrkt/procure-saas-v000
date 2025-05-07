@@ -2,6 +2,9 @@
 
 import { apiClient } from './client';
 import { User, ApiResponse } from '../types/api';
+import axios from 'axios';  // axiosをインポート
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
 export interface LoginResponse {
   user: User | null;
@@ -71,5 +74,24 @@ export const authApi = {
     } catch (error) {
       return false;
     }
+  }
+};
+
+export const loginWithoutCsrf = async (username: string, password: string) => {
+  try {
+    // 直接Axiosを使用し、CSRFトークンなしでリクエスト
+    const response = await axios.post(
+      `${API_URL}/auth/login`, 
+      { username, password },
+      { withCredentials: true }
+    );
+    
+    if (response.data.status === 'success') {
+      return response.data.data;
+    }
+    throw new Error(response.data.error?.message || '認証に失敗しました');
+  } catch (error) {
+    console.error('ログインエラー:', error);
+    throw error;
   }
 };

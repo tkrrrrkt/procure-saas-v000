@@ -6,6 +6,15 @@ import * as crypto from 'crypto';
 @Injectable()
 export class CsrfMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction) {
+    // デバッグ情報の強化
+    console.log('===== CSRF検証 =====');
+    console.log(`メソッド: ${req.method}`);
+    console.log(`オリジナルURL: ${req.originalUrl}`);
+    console.log(`パス: ${req.path}`);
+    console.log(`ベースURL: ${req.baseUrl}`);
+    console.log(`ホスト: ${req.hostname}`);
+    console.log('===================');
+    
     // GETリクエスト、またはCSRFトークンチェック不要なエンドポイントはスキップ
     if (req.method === 'GET' || this.isExemptPath(req.path)) {
       if (req.method === 'GET' && !req.cookies['csrf_token']) {
@@ -51,8 +60,21 @@ export class CsrfMiddleware implements NestMiddleware {
   }
 
   private isExemptPath(path: string): boolean {
-    // CSRF検証が不要なパスを定義（例: 認証エンドポイント）
-    const exemptPaths = ['/api/auth/login', '/api/auth/logout'];
-    return exemptPaths.some(exempt => path.startsWith(exempt));
+    // パスを正規化して一貫した比較を確保
+    const normalizedPath = path.replace(/\/+$/, '');
+    
+    // CSRF検証が不要なパスを定義
+    const exemptPaths = [
+      '/api/auth/login', 
+      '/api/auth/logout',
+      '/api/auth/refresh',
+      '/api/csrf/token'
+    ];
+    
+    // デバッグ出力
+    const result = exemptPaths.some(exempt => normalizedPath === exempt || normalizedPath.startsWith(exempt));
+    console.log(`CSRF検証: パス=${path}, 正規化=${normalizedPath}, 除外判定=${result}`);
+    
+    return result;
   }
 }

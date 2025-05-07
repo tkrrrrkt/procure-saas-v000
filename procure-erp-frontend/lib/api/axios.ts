@@ -47,11 +47,14 @@ axiosInstance.interceptors.request.use(
     if (config.method !== 'get') {
       // トークンがなければ取得を試みる
       if (!csrfToken) {
-        await fetchCsrfToken();
+        csrfToken = await fetchCsrfToken(); // 結果を直接代入
       }
       
       if (csrfToken) {
+        console.log('CSRFトークンをヘッダーに設定:', csrfToken); // デバッグ用
         config.headers['X-CSRF-Token'] = csrfToken;
+      } else {
+        console.warn('CSRFトークンが設定できませんでした'); // デバッグ用
       }
     }
     
