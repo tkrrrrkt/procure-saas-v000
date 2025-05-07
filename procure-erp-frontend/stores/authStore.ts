@@ -10,10 +10,9 @@ export interface User {
 interface AuthState {
   user: User | null
   accessToken: string | null
-  refreshToken: string | null
   loading: boolean
   /** ログイン成功時に呼び出す */
-  login: (u: User, at: string, rt?: string | null) => void
+  login: (u: User, at: string) => void
   /** ログアウト時に呼び出す */
   logout: () => void
   /** スピナー制御などに利用 */
@@ -25,18 +24,16 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
       accessToken: null,
-      refreshToken: null,
       loading: false,
 
-      login: (user, accessToken, refreshToken) =>
+      login: (user, accessToken) =>
         set({
           user,
           accessToken,
-          refreshToken: refreshToken ?? null,
           loading: false,
         }),
 
-      logout: () => set({ user: null, accessToken: null, refreshToken: null, loading: false }),
+      logout: () => set({ user: null, accessToken: null, loading: false }),
 
       setLoading: (v) => set({ loading: v }),
     }),
@@ -46,7 +43,6 @@ export const useAuthStore = create<AuthState>()(
       partialize: (s) => ({
         user: s.user,
         accessToken: s.accessToken,
-        refreshToken: s.refreshToken,
       }),
     },
   ),

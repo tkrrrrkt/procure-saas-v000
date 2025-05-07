@@ -41,32 +41,38 @@ export class AuthController {
         };
       }
 
-      // Cookie 設定
+      // Cookie 設定 - アクセストークン
       response.cookie('token', result.accessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
+        path: '/',  // アプリケーション全体でアクセス可能
         maxAge: loginDto.rememberMe
-          ? 7 * 24 * 60 * 60 * 1000 // 7 days
-          : 24 * 60 * 60 * 1000,   // 24 hours
+          ? 4 * 60 * 60 * 1000  // 4時間（JWTの有効期限と合わせる）
+          : 4 * 60 * 60 * 1000, // 4時間
       });
 
       if (result.refreshToken) {
+        // リフレッシュトークンのCookie設定を強化
         response.cookie('refresh_token', result.refreshToken, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
+          secure: process.env.NODE_ENV === 'production' || true, // 開発環境でもSecure推奨
           sameSite: 'strict',
-          maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+          path: '/api/auth',  // 認証エンドポイントのみに制限
+          maxAge: 30 * 24 * 60 * 60 * 1000, // 30日
         });
       }
 
       this.logger.log(`Login succeeded for user: ${loginDto.username}`);
+      
+      // レスポンスからリフレッシュトークンを削除（セキュリティ強化）
+      // クライアントはCookieから取得するため、レスポンスボディに含める必要はない
       return {
         status: 'success',
         data: {
           user: result.user,
           accessToken: result.accessToken,
-          refreshToken: result.refreshToken,
+          // リフレッシュトークンをレスポンスボディから除外
         },
       };
     } catch (error) {
@@ -87,12 +93,27 @@ export class AuthController {
   @Post('refresh')
   async refreshToken(
     @Body() refreshTokenDto: RefreshTokenDto,
+    @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
-  ): Promise<ApiResponse<{ user: any; accessToken: string; refreshToken?: string }>> {
+  ): Promise<ApiResponse<{ user: any; accessToken: string }>> {
     this.logger.log('Token refresh request received');
 
     try {
-      const result = await this.authService.refreshToken(refreshTokenDto.refreshToken);
+      // Cookieからリフレッシュトークンを取得（リクエストボディより優先）
+      const cookieRefreshToken = request.cookies['refresh_token'];
+      const tokenToUse = cookieRefreshToken || refreshTokenDto.refreshToken;
+      
+      if (!tokenToUse) {
+        return {
+          status: 'error',
+          error: {
+            code: 'REFRESH_TOKEN_MISSING',
+            message: 'リフレッシュトークンが見つかりません',
+          },
+        };
+      }
+      
+      const result = await this.authService.refreshToken(tokenToUse);
 
       if (!result.success) {
         return {
@@ -104,28 +125,33 @@ export class AuthController {
         };
       }
 
+      // アクセストークンのCookie設定
       response.cookie('token', result.accessToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: process.env.NODE_ENV === 'production' || true,
         sameSite: 'strict',
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        path: '/',
+        maxAge: 4 * 60 * 60 * 1000, // 4時間
       });
 
       if (result.refreshToken) {
+        // リフレッシュトークンのCookie設定を強化
         response.cookie('refresh_token', result.refreshToken, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
+          secure: process.env.NODE_ENV === 'production' || true,
           sameSite: 'strict',
-          maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+          path: '/api/auth',  // 認証エンドポイントのみに制限
+          maxAge: 30 * 24 * 60 * 60 * 1000, // 30日
         });
       }
 
+      // リフレッシュトークンをレスポンスボディから除外
       return {
         status: 'success',
         data: {
           user: result.user,
           accessToken: result.accessToken,
-          refreshToken: result.refreshToken,
+          // リフレッシュトークンは含めない
         },
       };
     } catch (error) {
@@ -147,8 +173,21 @@ export class AuthController {
   async logout(
     @Res({ passthrough: true }) response: Response,
   ): Promise<ApiResponse<{ message: string }>> {
-    response.clearCookie('token');
-    response.clearCookie('refresh_token');
+    // トークンCookieを削除（すべてのパラメータを一致させる）
+    response.clearCookie('token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production' || true,
+      sameSite: 'strict',
+      path: '/',
+    });
+    
+    // リフレッシュトークンCookieを削除（パスを指定）
+    response.clearCookie('refresh_token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production' || true,
+      sameSite: 'strict',
+      path: '/api/auth',
+    });
 
     this.logger.log('User logged out');
 

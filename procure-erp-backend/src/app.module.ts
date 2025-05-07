@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -13,6 +13,8 @@ import { UtilsModule }    from './shared/utils/utils.module';
 import { FiltersModule }  from './shared/filters/filters.module';
 import { UsersModule }    from './modules/users/users.module';
 import { HealthCheckModule } from './modules/health-check/health-check.module';
+import { CsrfMiddleware } from './common/middleware/csrf.middleware';
+import { CsrfModule } from './common/csrf/csrf.module';
 
 @Module({
   imports: [
@@ -24,8 +26,15 @@ import { HealthCheckModule } from './modules/health-check/health-check.module';
     FiltersModule,
     UsersModule,
     HealthCheckModule,
+    CsrfModule,           // 新しく追加したCSRFモジュール
   ],
   controllers: [AppController],
   providers:   [AppService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(CsrfMiddleware)
+      .forRoutes('*'); // すべてのルートに適用
+  }
+}
