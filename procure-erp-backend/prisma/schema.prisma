@@ -156,3 +156,36 @@ model Organization {
 
   @@map("organizations")
 }
+
+// 監査ログテーブル
+model AuditLog {
+  id                String    @id @default(uuid()) @db.Uuid
+  tenant_id         String?   @db.Uuid
+  user_id           String?   @db.VarChar(100)
+  user_role         String    @db.VarChar(50)
+  action            String    @db.VarChar(100)
+  resource          String    @db.VarChar(100)
+  resource_id       String?   @db.VarChar(100)
+  ip_address        String    @db.VarChar(50)
+  user_agent        String?   @db.VarChar(255)
+  request_params    Json?
+  request_query     Json?
+  request_body      Json?
+  response_status   Int
+  severity          String    @db.VarChar(20)
+  log_type          String    @db.VarChar(50)
+  execution_time    Int
+  timestamp         DateTime  @default(now())
+  is_privileged     Boolean   @default(false)
+  privilege_details String?   @db.VarChar(255)
+
+  @@index([tenant_id])
+  @@index([user_id])
+  @@index([action])
+  @@index([resource])
+  @@index([timestamp])
+  @@index([severity])
+  @@index([log_type])
+  @@index([is_privileged])
+  @@map("audit_logs")
+}

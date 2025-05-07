@@ -13,6 +13,7 @@ import {
   ApiBody, 
   ApiCookieAuth 
 } from '@nestjs/swagger';
+import { PrivilegedOperation } from '../../common/decorators/privileged-operation.decorator';
 
 /**
  * Authentication controller
@@ -73,6 +74,7 @@ export class AuthController {
       }
     }
   })
+  @PrivilegedOperation('ユーザーログイン認証')
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('login')
   async login(
@@ -190,6 +192,7 @@ export class AuthController {
       }
     }
   })
+  @PrivilegedOperation('認証トークンの更新')
   @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Post('refresh')
   async refreshToken(
@@ -289,6 +292,7 @@ export class AuthController {
       }
     }
   })
+  @PrivilegedOperation('ユーザーログアウト')
   @SkipThrottle()
   @Post('logout')
   async logout(

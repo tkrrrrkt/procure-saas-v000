@@ -1,4 +1,5 @@
 import { Module, NestModule, MiddlewareConsumer, RequestMethod } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -17,6 +18,10 @@ import { CsrfMiddleware } from './common/middleware/csrf.middleware';
 import { CsrfModule } from './common/csrf/csrf.module';
 import { ThrottlerModule } from './common/throttler/throttler.module';
 
+// 監査ログ機能のインポート
+import { AuditLogModule } from './common/audit/audit-log.module';
+import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
+
 @Module({
   imports: [
     CommonModule,          // Interceptor & Filter
@@ -27,11 +32,19 @@ import { ThrottlerModule } from './common/throttler/throttler.module';
     FiltersModule,
     UsersModule,
     HealthCheckModule,
-    CsrfModule,           // 新しく追加したCSRFモジュール
+    CsrfModule,           // CSRFモジュール
     ThrottlerModule,      // レート制限モジュール
+    AuditLogModule,       // 監査ログモジュール
   ],
   controllers: [AppController],
-  providers:   [AppService],
+  providers: [
+    AppService,
+    // 監査ログインターセプターをグローバルに適用
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuditLogInterceptor,
+    }
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
