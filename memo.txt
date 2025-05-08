@@ -14,4 +14,8 @@ npm install cookie-parser
 npm install @types/bcrypt 
 npm install @types/passport-local 
 npm install @types/cookie-parser --save-dev
-npm install joi
+npm install joi	
+npm install helmet
+npm install @nestjs/throttler
+npm install nodemailer  --legacy-peer-deps
+npm install @types/nodemailer --save-dev  --legacy-peer-deps

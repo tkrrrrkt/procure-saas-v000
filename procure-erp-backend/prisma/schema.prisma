@@ -189,3 +189,74 @@ model AuditLog {
   @@index([is_privileged])
   @@map("audit_logs")
 }
+
+// アプリ内通知モデル
+model Notification {
+  id           String    @id @default(uuid())
+  user_id      String    // 通知の対象ユーザーID
+  title        String    // 通知のタイトル
+  message      String    // 通知の詳細メッセージ
+  severity     String    // 通知の重要度（low/medium/high）
+  metadata     Json?     // 追加メタデータ（JSON形式）
+  read         Boolean   @default(false) // 既読状態
+  created_at   DateTime  @default(now()) // 作成日時
+  read_at      DateTime? // 既読日時
+
+  @@index([user_id])
+  @@index([read])
+  @@index([created_at])
+}
+
+// テスト用ユーザーモデル
+model TestUser {
+  id           String      @id @default(uuid()) @db.Uuid
+  username     String
+  email        String      @unique
+  role         String      // admin, purchase_admin, security_admin など
+  is_active    Boolean     @default(true)
+  created_at   DateTime    @default(now())
+  updated_at   DateTime    @updatedAt
+  testOrders   TestOrder[] // リレーション
+
+  @@index([role])
+  @@index([is_active])
+  @@map("test_users") // テーブル名
+}
+
+// テスト用注文モデル
+model TestOrder {
+  id            String    @id @default(uuid()) @db.Uuid
+  order_number  String    @unique
+  user_id       String    @db.Uuid
+  status        String    // pending, approved, cancelled, completed など
+  total_amount  Float
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+  user          TestUser  @relation(fields: [user_id], references: [id])
+
+  @@index([user_id])
+  @@index([status])
+  @@index([created_at])
+  @@map("test_orders") // テーブル名
+}
+
+// 異常ログモデル
+model AnomalyLogRecord {
+  id           String    @id @default(uuid()) @db.Uuid
+  type         String    // 異常の種類（high_purchase, auth_failure, unusual_access など）
+  severity     String    // 重要度（low/medium/high）
+  user_id      String?   @db.Uuid // 関連ユーザーID（ない場合もある）
+  details      Json      // 詳細情報（種類によって異なる）
+  detected_at  DateTime  @default(now()) // 検出日時
+  is_resolved  Boolean   @default(false) // 解決済みフラグ
+  resolved_at  DateTime? // 解決日時
+  resolved_by  String?   @db.Uuid // 解決者のユーザーID
+  notes        String?   // 解決時のメモ
+
+  @@index([type])
+  @@index([severity])
+  @@index([user_id])
+  @@index([detected_at])
+  @@index([is_resolved])
+  @@map("anomaly_logs") // テーブル名
+}
