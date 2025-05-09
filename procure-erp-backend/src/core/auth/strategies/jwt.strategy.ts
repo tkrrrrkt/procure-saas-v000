@@ -13,6 +13,7 @@ interface JwtPayload {
   username: string;
   role?: string;
   tenant_id?: string;
+  login_account_id?: string; // LoginAccount ID
   // 他の必要なフィールド
 }
 
@@ -61,6 +62,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       username: payload.username,
       role: payload.role,
       tenant_id: payload.tenant_id,
+      login_account_id: payload.login_account_id,
     };
   }
 

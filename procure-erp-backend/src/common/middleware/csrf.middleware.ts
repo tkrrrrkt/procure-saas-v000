@@ -104,15 +104,23 @@ export class CsrfMiddleware implements NestMiddleware {
     const exemptPaths = [
       'auth/login',
       'auth/refresh', 
+      'auth/mfa', // MFA関連のエンドポイントをCSRF検証から除外
       'csrf/token',
       'health-check',
       'api-docs'
     ];
     
+    // MFA関連のパスであれば詳細なログを出力
+    if (normalizedPath.includes('auth/mfa')) {
+      this.logger.warn(`MFA関連パスを検出: ${normalizedPath} - CSRF検証から除外します`);
+    }
+    
     const result = exemptPaths.some(exempt => {
       return normalizedPath === `api/${exempt}` || 
             normalizedPath.startsWith(`api/${exempt}/`);
     });
+    
+    this.logger.debug(`Path ${normalizedPath} exempt check result: ${result}`);
     
     return result;
   }

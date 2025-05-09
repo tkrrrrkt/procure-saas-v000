@@ -24,6 +24,16 @@ axiosInstance.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
     
+    // MFAトークンがあれば、リクエストヘッダーに追加（セキュリティのためsessionStorageのみを使用）
+    const mfaToken = sessionStorage.getItem("mfaToken");
+    if (mfaToken) {
+      config.headers['X-MFA-Token'] = mfaToken;
+      // 本番環境ではログを削除するか、最低限の情報のみ出力
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('MFAトークンをヘッダーに追加:', mfaToken.substring(0, 6) + '***');
+      }
+    }
+    
     // 非GETリクエストの場合のみCSRFトークンを設定
     if (config.method !== 'get') {
       try {
@@ -33,10 +43,14 @@ axiosInstance.interceptors.request.use(
         if (token) {
           config.headers['X-CSRF-Token'] = token;
         } else {
-          console.warn('CSRFトークンが設定できませんでした');
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn('CSRFトークンが設定できませんでした');
+          }
         }
       } catch (error) {
-        console.error('CSRFトークン取得エラー:', error);
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('CSRFトークン取得エラー:', error);
+        }
       }
     }
     
@@ -57,6 +71,25 @@ axiosInstance.interceptors.response.use(
     
     // 401エラー（認証切れ）の処理
     if (error.response?.status === 401 && !originalRequest._retry) {
+      // MFA要求エラーの処理
+      if (error.response?.data?.error?.code === 'MFA_REQUIRED' && !originalRequest._mfaRetry) {
+        originalRequest._mfaRetry = true;
+        
+        // MFA認証が必要なことをイベント通知
+        if (typeof window !== 'undefined') {
+          const mfaRequiredEvent = new CustomEvent('mfa-required', {
+            detail: {
+              originalRequest,
+            }
+          });
+          window.dispatchEvent(mfaRequiredEvent);
+        }
+        
+        // MFA認証が必要な場合は、元のリクエストは中断
+        return Promise.reject(error);
+      }
+      
+      // 通常の認証エラー処理（トークンリフレッシュ）
       originalRequest._retry = true;
       
       try {
@@ -78,15 +111,28 @@ axiosInstance.interceptors.response.use(
           return axiosInstance(originalRequest);
         }
       } catch (refreshError) {
-        console.error("トークンリフレッシュエラー:", refreshError);
+        if (process.env.NODE_ENV !== 'production') {
+          console.error("トークンリフレッシュエラー:", refreshError);
+        }
         
         // 認証関連の情報をクリア
         localStorage.removeItem("accessToken");
         localStorage.removeItem("user");
+        // MFAトークンはsessionStorageからのみクリア
+        sessionStorage.removeItem("mfaToken");
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('認証エラーにより認証情報をクリアしました');
+        }
         
         // 認証関連の問題の場合はログインページにリダイレクト
         if (typeof window !== "undefined") {
-          window.location.href = "/login";
+          // MFA認証が必要な場合は専用ページにリダイレクト
+          if (error.response?.data?.error?.code === 'MFA_REQUIRED') {
+            window.location.href = "/login?mfa=required";
+          } else {
+            // その他の認証エラーは通常のログインページへ
+            window.location.href = "/login";
+          }
         }
       }
     }
@@ -107,7 +153,9 @@ axiosInstance.interceptors.response.use(
           return axiosInstance(originalRequest);
         }
       } catch (csrfError) {
-        console.error("CSRF再取得エラー:", csrfError);
+        if (process.env.NODE_ENV !== 'production') {
+          console.error("CSRF再取得エラー:", csrfError);
+        }
       }
     }
     
@@ -155,8 +203,27 @@ axiosInstance.interceptors.response.use(
 
 // アプリ起動時にCSRFトークンを取得
 if (typeof window !== 'undefined') {
-  csrfManager.getToken().catch(console.error);
+  csrfManager.getToken().catch(error => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('アプリ起動時のCSRFトークン取得エラー:', error);
+    }
+  });
 }
+
+/**
+ * MFAトークンをクリアする
+ * ログアウト時などに呼び出し
+ */
+export const clearMfaToken = () => {
+  if (typeof window !== 'undefined') {
+    // MFAトークンはsessionStorageでのみ管理する
+    sessionStorage.removeItem('mfaToken');
+    // 本番環境ではログを削除または最小限に
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('MFAトークンをクリアしました');
+    }
+  }
+};
 
 // エクスポート
 export { csrfManager };

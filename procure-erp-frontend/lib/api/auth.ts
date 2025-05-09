@@ -10,6 +10,7 @@ export interface LoginResponse {
   user: User | null;
   accessToken: string | null;
   refreshToken: string | null;
+  requireMfa?: boolean; // ← 新しいプロパティを追加
 }
 
 export const authApi = {
@@ -18,6 +19,7 @@ export const authApi = {
       user: User;
       accessToken?: string;
       refreshToken?: string;
+      requireMfa?: boolean;
     }>('/auth/login', {
       username,
       password,
@@ -31,6 +33,7 @@ export const authApi = {
         user: response.data.user,
         accessToken: response.data.accessToken || null,
         refreshToken: response.data.refreshToken || null,
+        requireMfa: response.data.requireMfa, // MFA要求フラグを追加
       };
     }
     

@@ -40,6 +40,7 @@ export interface TokenResponseDto {
     id: string;
     username: string;
     role: string;
+    login_account_id?: string;
   } | null;
   accessToken: string | null;
   refreshToken?: string | null;

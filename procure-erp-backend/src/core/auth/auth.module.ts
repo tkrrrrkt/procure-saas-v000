@@ -14,11 +14,12 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { TokenBlacklistService } from './token-blacklist.service';
 import { RedisModule } from '../redis/redis.module';
+import { MfaModule } from './mfa/mfa.module'; // MfaModuleをインポート
 
 @Module({
   imports: [
     PassportModule,
-    RedisModule, // Redis モジュールを追加
+    RedisModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -30,19 +31,20 @@ import { RedisModule } from '../redis/redis.module';
       }),
     }),
     DatabaseModule,
-    ThrottlerModule, // レート制限モジュール
+    ThrottlerModule,
+    MfaModule, // MfaModuleを追加
   ],
   controllers: [AuthController],
   providers: [
     AuthService, 
     JwtStrategy, 
     LocalStrategy,
-    TokenBlacklistService, // トークンブラックリストサービスを追加
+    TokenBlacklistService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
   ],
-  exports: [AuthService, TokenBlacklistService], // TokenBlacklistServiceをエクスポート
+  exports: [AuthService, TokenBlacklistService],
 })
 export class AuthModule {}

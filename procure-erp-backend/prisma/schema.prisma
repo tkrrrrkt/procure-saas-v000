@@ -13,10 +13,12 @@ model EmpAccount {
   emp_name                   String               @db.VarChar(15)
   emp_kana_name              String               @db.VarChar(15)
   email                      String?              @db.VarChar(50)
-  password_hash              String               @db.VarChar(255)
+  // ↓ 認証情報をlogin_accountテーブルに移行するため、フィールドを削除
+  // password_hash              String               @db.VarChar(255)
   role                       String               @db.VarChar(20)
   valid_flg                  String               @db.VarChar(1)
-  last_login                 DateTime?
+  // ↓ 認証情報をlogin_accountテーブルに移行するため、フィールドを削除
+  // last_login                 DateTime?
   created_at                 DateTime             @default(now())
   created_by_id              String?              @db.Uuid
   updated_at                 DateTime             @updatedAt
@@ -33,6 +35,8 @@ model EmpAccount {
   departmentAssignments      EmployeeDepartment[]
   createdOrgHistories        OrgHistory[]         @relation("OrgHistoryCreatedBy")
   updatedOrgHistories        OrgHistory[]         @relation("OrgHistoryUpdatedBy")
+  // ↓ LoginAccountとの関連を追加
+  loginAccount               LoginAccount?        @relation("EmpAccountLogin")
 
   @@unique([tenant_id, emp_account_cd], map: "emp_account_tenant_cd_unique")
   @@unique([tenant_id, email], map: "emp_account_tenant_email_unique")
@@ -209,14 +213,20 @@ model Notification {
 
 // テスト用ユーザーモデル
 model TestUser {
-  id           String      @id @default(uuid()) @db.Uuid
-  username     String
-  email        String      @unique
-  role         String      // admin, purchase_admin, security_admin など
-  is_active    Boolean     @default(true)
-  created_at   DateTime    @default(now())
-  updated_at   DateTime    @updatedAt
-  testOrders   TestOrder[] // リレーション
+  id              String      @id @default(uuid()) @db.Uuid
+  username        String
+  email           String      @unique
+  role            String      // admin, purchase_admin, security_admin など
+  is_active       Boolean     @default(true)
+  created_at      DateTime    @default(now())
+  updated_at      DateTime    @updatedAt
+  testOrders      TestOrder[] // リレーション
+  
+  // MFA関連フィールドを追加
+  mfa_enabled     Boolean     @default(false)
+  mfa_secret      String?     @db.VarChar(255)
+  mfa_backup_codes Json?      // バックアップコードのリスト（JSON配列）
+  mfa_last_used   DateTime?   // 最後にMFAが使用された日時
 
   @@index([role])
   @@index([is_active])
@@ -259,4 +269,35 @@ model AnomalyLogRecord {
   @@index([detected_at])
   @@index([is_resolved])
   @@map("anomaly_logs") // テーブル名
+}
+
+// 新しいログインアカウントモデル
+model LoginAccount {
+  id                String      @id @default(uuid()) @db.Uuid
+  tenant_id         String      @db.Uuid
+  username          String      @db.VarChar(50)      // ログインID
+  password_hash     String      @db.VarChar(255)     // パスワードハッシュ
+  emp_account_id    String?     @unique @db.Uuid     // 従業員アカウントとの関連（1対1）
+  empAccount        EmpAccount? @relation("EmpAccountLogin", fields: [emp_account_id], references: [emp_account_id])
+  role              String      @db.VarChar(20)      // 権限ロール
+  status            String      @db.VarChar(10)      // アカウント状態（active, locked, disabled など）
+  last_login        DateTime?                        // 最終ログイン日時
+  login_failure_count Int       @default(0)          // 連続ログイン失敗回数
+  locked_until      DateTime?                        // アカウントロック期限
+  password_changed_at DateTime @default(now())       // パスワード最終変更日
+  created_at        DateTime    @default(now())
+  updated_at        DateTime    @updatedAt
+  
+  // MFA関連フィールド
+  mfa_enabled       Boolean     @default(false)      // MFA有効フラグ
+  mfa_secret        String?     @db.VarChar(255)     // MFAシークレット
+  mfa_backup_codes  Json?                            // バックアップコードのリスト（JSON配列）
+  mfa_last_used     DateTime?                        // 最後にMFAが使用された日時
+
+  @@unique([tenant_id, username])
+  @@index([tenant_id])
+  @@index([username])
+  @@index([emp_account_id])
+  @@index([status])
+  @@map("login_accounts")
 }

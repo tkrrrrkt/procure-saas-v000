@@ -30,6 +30,11 @@ import { SecurityModule } from './common/security/security.module';
 
 // Redisモジュールとその他の条件付きモジュール
 import { RedisModule } from './core/redis/redis.module';
+import { MfaModule } from './core/auth/mfa/mfa.module';
+import { MfaGuard } from './core/auth/guards/mfa.guard';
+import { APP_GUARD } from '@nestjs/core';
+
+
 let HttpModule;
 let ScheduleModule;
 try {
@@ -64,6 +69,7 @@ try {
     ...(ScheduleModule ? [ScheduleModule.forRoot()] : []),
     NotificationsModule,
     SecurityModule,
+    MfaModule,
   ],
   controllers: [AppController],
   providers: [

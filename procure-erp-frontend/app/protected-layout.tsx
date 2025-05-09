@@ -12,12 +12,33 @@ export default function ProtectedLayout({
   children,
 }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, loading, mfaRequired } = useAuth();
 
-  /* ① ログイン確認 */
+  /* ① ログイン確認とMFA確認 */
   React.useEffect(() => {
-    if (!loading && !user) router.replace("/login");
-  }, [loading, user, router]);
+    if (!loading) {
+      console.log('ProtectedLayout - 認証状態:', { user: !!user, mfaRequired });
+      
+      if (!user) {
+        console.log('ユーザーが未認証のため、ログインページにリダイレクト');
+        router.replace("/login");
+      } else if (mfaRequired) {
+        // MFA認証が必要な場合は専用のMFA確認ページにリダイレクト
+        console.log('MFA認証が必要なため、MFA確認ページにリダイレクト');
+        router.replace("/login?mfa=required");
+      } else {
+        // 認証済みかつMFA完了状態をチェック
+        const hasMfaToken = typeof window !== 'undefined' && !!sessionStorage.getItem('mfaToken');
+        console.log('MFAトークン確認:', hasMfaToken ? '存在します' : '存在しません');
+        
+        // ユーザーにMFAが必要だがトークンがない場合
+        if (!hasMfaToken && user.requireMfa) {
+          console.log('MFAトークンが見つかりません。MFA確認ページにリダイレクト');
+          router.replace("/login?mfa=required");
+        }
+      }
+    }
+  }, [loading, user, mfaRequired, router]);
 
   /* ② スピナー */
   if (loading) {

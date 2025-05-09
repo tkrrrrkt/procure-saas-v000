@@ -16,6 +16,7 @@ import {
 import { PrivilegedOperation } from '../../common/decorators/privileged-operation.decorator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ConfigService } from '@nestjs/config';
+import { MfaService } from './mfa/mfa.service'; // MFAサービスのインポート
 
 /**
  * Authentication controller
@@ -30,6 +31,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
+    private readonly mfaService: MfaService, // MFAサービスの注入
   ) {}
 
   /**
@@ -56,7 +58,8 @@ export class AuthController {
                 role: { type: 'string', example: 'USER' }
               }
             },
-            accessToken: { type: 'string', example: 'eyJhbGciOiJIUzI1...' }
+            accessToken: { type: 'string', example: 'eyJhbGciOiJIUzI1...' },
+            requireMfa: { type: 'boolean', example: false, description: 'MFA認証が必要かどうか' } // MFA要求フラグ追加
           }
         }
       }
@@ -85,7 +88,7 @@ export class AuthController {
   async login(
     @Body() loginDto: LoginDto,
     @Res({ passthrough: true }) response: Response,
-  ): Promise<ApiResponse<{ user: any; accessToken: string; refreshToken?: string }>> {
+  ): Promise<ApiResponse<{ user: any; accessToken: string; refreshToken?: string; requireMfa?: boolean }>> {
     this.logger.log(`Login request received for user: ${loginDto.username}`);
 
     try {
@@ -145,15 +148,26 @@ export class AuthController {
 
       this.logger.log(`Login succeeded for user: ${loginDto.username}`);
       
+      // MFAが有効かチェック
+      const userId = result.user.login_account_id || result.user.id;
+      this.logger.log(`MFAステータスを確認します。ユーザーID: ${userId}`);
+      const mfaStatus = await this.mfaService.getMfaStatus(userId);
+      
+      this.logger.log(`MFA状態: ${mfaStatus.enabled ? '有効' : '無効'}`);
+      
       // 後方互換性のためにトークンをレスポンスボディにも含める
-      return {
+      const responseData: ApiResponse<{ user: any; accessToken: string; requireMfa: boolean }> = {
         status: 'success',
         data: {
           user: result.user,
           accessToken: result.accessToken,
           // refreshToken: result.refreshToken // セキュリティのため除外
+          requireMfa: mfaStatus.enabled, // MFA必須フラグ
         },
       };
+      
+      this.logger.log(`ログインレスポンス: requireMfa=${responseData.data.requireMfa}`);
+      return responseData;
     } catch (error) {
       this.logger.error('Login error', error instanceof Error ? error.stack : undefined);
       return {
@@ -374,6 +388,14 @@ export class AuthController {
         secure: isProduction,
         sameSite: 'strict',
         path: '/api/auth',
+      });
+
+      // MFAトークンCookieも削除（ヘッダーではなくCookieとして保存する場合）
+      response.clearCookie('mfa_token', {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'strict',
+        path: '/',
       });
 
       this.logger.log('User logged out');

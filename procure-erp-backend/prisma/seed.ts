@@ -84,7 +84,6 @@ async function main() {
       emp_name: '山田 太郎',
       emp_kana_name: 'ヤマダ タロウ',
       email: 'yamada@sample.co.jp',
-      password_hash: '$2b$10$YourHashedPasswordHere',
       role: 'ADMIN',
       valid_flg: '1',
     },
@@ -97,7 +96,6 @@ async function main() {
       emp_name: '鈴木 花子',
       emp_kana_name: 'スズキ ハナコ',
       email: 'suzuki@sample.co.jp',
-      password_hash: '$2b$10$YourHashedPasswordHere',
       role: 'USER',
       valid_flg: '1',
     },
@@ -110,9 +108,45 @@ async function main() {
       emp_name: '田中 一郎',
       emp_kana_name: 'タナカ イチロウ',
       email: 'tanaka@sample.co.jp',
-      password_hash: '$2b$10$YourHashedPasswordHere',
       role: 'USER',
       valid_flg: '1',
+    },
+  });
+
+  // LoginAccountの作成
+  const yamadaLogin = await prisma.loginAccount.create({
+    data: {
+      tenant_id: organization.id,
+      username: yamada.emp_account_cd,
+      password_hash: '$2b$10$YourHashedPasswordHere',
+      role: yamada.role,
+      status: 'active',
+      emp_account_id: yamada.emp_account_id,
+      mfa_enabled: false,
+    },
+  });
+
+  const suzukiLogin = await prisma.loginAccount.create({
+    data: {
+      tenant_id: organization.id,
+      username: suzuki.emp_account_cd,
+      password_hash: '$2b$10$YourHashedPasswordHere',
+      role: suzuki.role,
+      status: 'active',
+      emp_account_id: suzuki.emp_account_id,
+      mfa_enabled: false,
+    },
+  });
+
+  const tanakaLogin = await prisma.loginAccount.create({
+    data: {
+      tenant_id: organization.id,
+      username: tanaka.emp_account_cd,
+      password_hash: '$2b$10$YourHashedPasswordHere',
+      role: tanaka.role,
+      status: 'active',
+      emp_account_id: tanaka.emp_account_id,
+      mfa_enabled: false,
     },
   });
 
@@ -164,6 +198,11 @@ async function main() {
       yamada,
       suzuki,
       tanaka,
+    },
+    loginAccounts: {
+      yamadaLogin,
+      suzukiLogin,
+      tanakaLogin,
     },
     employeeDepartments,
   });

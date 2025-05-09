@@ -19,6 +19,8 @@ export interface ApiResponse<T> {
     id: string;
     username: string;
     role: string;
+    login_account_id?: string;
+    requireMfa?: boolean;
   }
   
   // 他の共通インターフェース...
