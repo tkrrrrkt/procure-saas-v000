@@ -7,7 +7,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
 import { CommonModule } from './common/common.module';
-import { ConfigModule } from './config/config.module';   // ← 自作 ConfigModule を import
+import { ConfigModule } from './config/config.module';
 
 // 機能モジュール
 import { AuthModule } from './core/auth/auth.module';
@@ -28,7 +28,8 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
 import { NotificationsModule } from './common/notifications/notifications.module';
 import { SecurityModule } from './common/security/security.module';
 
-// 条件付きでHttpModuleとScheduleModuleをインポート
+// Redisモジュールとその他の条件付きモジュール
+import { RedisModule } from './core/redis/redis.module';
 let HttpModule;
 let ScheduleModule;
 try {
@@ -47,26 +48,26 @@ try {
 
 @Module({
   imports: [
-    CommonModule,          // Interceptor & Filter
-    ConfigModule,          // ← forRoot() 呼び出しは不要
+    CommonModule,
+    ConfigModule,
     AuthModule,
     DatabaseModule,
     UtilsModule,
     FiltersModule,
     UsersModule,
     HealthCheckModule,
-    CsrfModule,           // CSRFモジュール
-    ThrottlerModule,      // レート制限モジュール
-    AuditLogModule,       // 監査ログモジュール
-    ...(HttpModule ? [HttpModule] : []),  // HttpModuleが存在する場合のみ追加
-    ...(ScheduleModule ? [ScheduleModule.forRoot()] : []),  // ScheduleModuleが存在する場合のみ追加
-    NotificationsModule,  // 新規：通知モジュール
-    SecurityModule,       // 新規：セキュリティモジュール
+    CsrfModule,
+    ThrottlerModule,
+    AuditLogModule,
+    RedisModule,
+    ...(HttpModule ? [HttpModule] : []),
+    ...(ScheduleModule ? [ScheduleModule.forRoot()] : []),
+    NotificationsModule,
+    SecurityModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
-    // 監査ログインターセプターをグローバルに適用
     {
       provide: APP_INTERCEPTOR,
       useClass: AuditLogInterceptor,
@@ -75,9 +76,27 @@ try {
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    // すべてのAPIパスに対してCSRFミドルウェアを適用
+    // デバッグログ
+    console.log('==== CSRF保護ミドルウェアを設定しています ====');
+    
+    // CSRFミドルウェアをすべての状態変更リクエストに適用
     consumer
       .apply(CsrfMiddleware)
-      .forRoutes({ path: 'auth/*', method: RequestMethod.ALL });  // 特定のパスだけに適用
+      .exclude(
+        // 'api/'プレフィックスを削除（重複を避ける）
+        { path: 'csrf/token', method: RequestMethod.GET },
+        { path: 'health-check*', method: RequestMethod.GET },
+        { path: 'api-docs*', method: RequestMethod.ALL },
+        { path: 'auth/login', method: RequestMethod.POST },
+        { path: 'auth/refresh', method: RequestMethod.POST },
+        { path: '(.*)', method: RequestMethod.GET }
+      )
+      .forRoutes(
+        // 'api/'プレフィックスを削除（重複を避ける）
+        { path: '*', method: RequestMethod.POST },
+        { path: '*', method: RequestMethod.PUT },
+        { path: '*', method: RequestMethod.PATCH },
+        { path: '*', method: RequestMethod.DELETE }
+      );
   }
 }

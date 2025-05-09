@@ -1,19 +1,25 @@
 // src/common/middleware/csrf.middleware.ts
-import { Injectable, NestMiddleware } from '@nestjs/common';
+import { Injectable, NestMiddleware, Logger } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import * as crypto from 'crypto';
 
 @Injectable()
 export class CsrfMiddleware implements NestMiddleware {
+  private readonly logger = new Logger(CsrfMiddleware.name);
+  
   use(req: Request, res: Response, next: NextFunction) {
-    // デバッグ情報の強化
-    console.log('===== CSRF検証 =====');
-    console.log(`メソッド: ${req.method}`);
-    console.log(`オリジナルURL: ${req.originalUrl}`);
-    console.log(`パス: ${req.path}`);
-    console.log(`ベースURL: ${req.baseUrl}`);
-    console.log(`ホスト: ${req.hostname}`);
-    console.log('===================');
+    // デバッグ出力の強化
+    console.log(`===== CSRFミドルウェア実行 =====`);
+    console.log(`リクエスト: ${req.method} ${req.path}`);
+    
+    // デバッグ情報の記録
+    this.logger.debug(`===== CSRF検証 =====`);
+    this.logger.debug(`メソッド: ${req.method}`);
+    this.logger.debug(`オリジナルURL: ${req.originalUrl}`);
+    this.logger.debug(`パス: ${req.path}`);
+    this.logger.debug(`ベースURL: ${req.baseUrl}`);
+    this.logger.debug(`ホスト: ${req.hostname}`);
+    this.logger.debug('===================');
     
     // GETリクエスト、またはCSRFトークンチェック不要なエンドポイントはスキップ
     if (req.method === 'GET' || this.isExemptPath(req.path)) {
@@ -32,9 +38,38 @@ export class CsrfMiddleware implements NestMiddleware {
 
     // POSTリクエスト等ではCSRFトークンの検証を行う
     const cookieToken = req.cookies['csrf_token'];
-    const headerToken = req.headers['x-csrf-token'];
+    // headerTokenを適切に処理して常に文字列になるようにする
+    const headerToken = Array.isArray(req.headers['x-csrf-token']) 
+      ? req.headers['x-csrf-token'][0] 
+      : String(req.headers['x-csrf-token'] || '');
 
-    if (!cookieToken || !headerToken || cookieToken !== headerToken) {
+    this.logger.debug(`CSRFトークン検証: Cookie=${cookieToken ? '存在' : 'なし'}, Header=${headerToken ? '存在' : 'なし'}`);
+
+    if (!cookieToken || !headerToken) {
+      this.logger.warn('CSRFトークンが見つかりません', {
+        cookieExists: !!cookieToken,
+        headerExists: !!headerToken,
+        path: req.path,
+        method: req.method
+      });
+      
+      return res.status(403).json({
+        status: 'error',
+        error: {
+          code: 'CSRF_TOKEN_MISSING',
+          message: 'CSRF保護のため、このリクエストは拒否されました',
+        },
+      });
+    }
+    
+    if (cookieToken !== headerToken) {
+      this.logger.warn('CSRFトークンが一致しません', {
+        cookieTokenPrefix: cookieToken.substring(0, 8) + '...',
+        headerTokenPrefix: headerToken.substring(0, 8) + '...',
+        path: req.path,
+        method: req.method
+      });
+      
       return res.status(403).json({
         status: 'error',
         error: {
@@ -43,6 +78,8 @@ export class CsrfMiddleware implements NestMiddleware {
         },
       });
     }
+
+    this.logger.debug('CSRFトークン検証成功');
 
     // 検証成功後、新しいトークンを発行（Double Submit Cookie Patternの強化）
     const newToken = this.generateToken();
@@ -60,20 +97,22 @@ export class CsrfMiddleware implements NestMiddleware {
   }
 
   private isExemptPath(path: string): boolean {
-    // パスを正規化して一貫した比較を確保
-    const normalizedPath = path.replace(/\/+$/, '');
+    // グローバルプレフィックスを考慮して正規化
+    const normalizedPath = path.replace(/^\/+|\/+$/g, '');
     
-    // CSRF検証が不要なパスを定義
+    // '/api/'を除去したパスで比較
     const exemptPaths = [
-      '/api/auth/login', 
-      '/api/auth/logout',
-      '/api/auth/refresh',
-      '/api/csrf/token'
+      'auth/login',
+      'auth/refresh', 
+      'csrf/token',
+      'health-check',
+      'api-docs'
     ];
     
-    // デバッグ出力
-    const result = exemptPaths.some(exempt => normalizedPath === exempt || normalizedPath.startsWith(exempt));
-    console.log(`CSRF検証: パス=${path}, 正規化=${normalizedPath}, 除外判定=${result}`);
+    const result = exemptPaths.some(exempt => {
+      return normalizedPath === `api/${exempt}` || 
+            normalizedPath.startsWith(`api/${exempt}/`);
+    });
     
     return result;
   }

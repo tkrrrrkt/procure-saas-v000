@@ -104,6 +104,14 @@ async function bootstrap() {
     customSiteTitle: '購買管理SaaS API Documentation',
   });
   
+  // *** 追加：Expressミドルウェアでリクエストをロギング（デバッグ用） ***
+  app.use((req, res, next) => {
+    if (req.method !== 'GET') {
+      logger.debug(`リクエスト: ${req.method} ${req.path}`);
+    }
+    next();
+  });
+  
   // ポート設定（環境変数を使用）
   const port = process.env.PORT || 3001;
   await app.listen(port);

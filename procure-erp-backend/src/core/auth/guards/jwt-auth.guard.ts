@@ -6,5 +6,5 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
   canActivate(context: ExecutionContext) {
     // JWTベースの認証を行う
     return super.canActivate(context);
-  }
+  } 
 }
