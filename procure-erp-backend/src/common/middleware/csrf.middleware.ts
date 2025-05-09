@@ -101,18 +101,37 @@ export class CsrfMiddleware implements NestMiddleware {
     const normalizedPath = path.replace(/^\/+|\/+$/g, '');
     
     // '/api/'を除去したパスで比較
-    const exemptPaths = [
+    // 基本的なCSRF除外パス
+    const basicExemptPaths = [
       'auth/login',
       'auth/refresh', 
-      'auth/mfa', // MFA関連のエンドポイントをCSRF検証から除外
       'csrf/token',
       'health-check',
       'api-docs'
     ];
     
+    // MFA関連の除外パス（認証フロー関連のみ）
+    const mfaExemptPaths = [
+      'auth/mfa/verify',   // MFAトークン検証（認証プロセスの一部）
+      'auth/mfa/recovery', // リカバリーコード検証（認証プロセスの一部）
+      'auth/mfa/status',   // MFA状態確認（情報取得のみ）
+    ];
+    
+    // 完全な除外パスリスト
+    const exemptPaths = [...basicExemptPaths, ...mfaExemptPaths];
+    
     // MFA関連のパスであれば詳細なログを出力
-    if (normalizedPath.includes('auth/mfa')) {
-      this.logger.warn(`MFA関連パスを検出: ${normalizedPath} - CSRF検証から除外します`);
+    const isMfaPath = normalizedPath.includes('auth/mfa');
+    const isMfaExemptPath = mfaExemptPaths.some(mfaPath => 
+      normalizedPath === `api/${mfaPath}` || normalizedPath.startsWith(`api/${mfaPath}/`)
+    );
+    
+    if (isMfaPath) {
+      if (isMfaExemptPath) {
+        this.logger.warn(`MFA認証フローパスを検出: ${normalizedPath} - CSRF検証から除外します`);
+      } else {
+        this.logger.info(`MFA設定パスを検出: ${normalizedPath} - CSRF検証を適用します`);
+      }
     }
     
     const result = exemptPaths.some(exempt => {
