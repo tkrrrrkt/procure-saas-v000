@@ -130,7 +130,7 @@ export class CsrfMiddleware implements NestMiddleware {
       if (isMfaExemptPath) {
         this.logger.warn(`MFA認証フローパスを検出: ${normalizedPath} - CSRF検証から除外します`);
       } else {
-        this.logger.info(`MFA設定パスを検出: ${normalizedPath} - CSRF検証を適用します`);
+        this.logger.log(`MFA設定パスを検出: ${normalizedPath} - CSRF検証を適用します`);
       }
     }
     
