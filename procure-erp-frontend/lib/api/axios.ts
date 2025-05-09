@@ -2,29 +2,9 @@
 
 import axios from "axios";
 import { ApiResponse } from "../types/api";
+import { csrfManager } from "./csrf-manager";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
-
-// CSRFトークンをグローバルに保持するための変数
-let csrfToken: string | null = null;
-
-// CSRFトークンを取得する関数
-export async function fetchCsrfToken() {
-  try {
-    const response = await axios.get<{ token: string }>(`${API_URL}/csrf/token`, {
-      withCredentials: true // クッキーを送受信するために必要
-    });
-    
-    if (response.data && response.data.token) {
-      csrfToken = response.data.token;
-      return response.data.token;
-    }
-    return null;
-  } catch (error) {
-    console.error("CSRFトークン取得エラー:", error);
-    return null;
-  }
-}
 
 export const axiosInstance = axios.create({
   baseURL: API_URL,
@@ -37,24 +17,26 @@ export const axiosInstance = axios.create({
 // リクエストインターセプター
 axiosInstance.interceptors.request.use(
   async (config) => {
-    // アクセストークンをヘッダーに追加
+    // 後方互換性のため、localStorage からもトークンを取得
+    // HttpOnly Cookie が優先されるが、古いコードとの互換性のため維持
     const token = localStorage.getItem("accessToken");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     
-    // CSRFトークンをヘッダーに追加（非GETリクエストの場合）
+    // 非GETリクエストの場合のみCSRFトークンを設定
     if (config.method !== 'get') {
-      // トークンがなければ取得を試みる
-      if (!csrfToken) {
-        csrfToken = await fetchCsrfToken(); // 結果を直接代入
-      }
-      
-      if (csrfToken) {
-        console.log('CSRFトークンをヘッダーに設定:', csrfToken); // デバッグ用
-        config.headers['X-CSRF-Token'] = csrfToken;
-      } else {
-        console.warn('CSRFトークンが設定できませんでした'); // デバッグ用
+      try {
+        // CSRFマネージャーからトークンを取得
+        const token = await csrfManager.getToken();
+        
+        if (token) {
+          config.headers['X-CSRF-Token'] = token;
+        } else {
+          console.warn('CSRFトークンが設定できませんでした');
+        }
+      } catch (error) {
+        console.error('CSRFトークン取得エラー:', error);
       }
     }
     
@@ -84,23 +66,28 @@ axiosInstance.interceptors.response.use(
         });
         
         if (response.data.status === 'success' && response.data.data) {
-          // アクセストークンのみローカルストレージに保存
-          localStorage.setItem("accessToken", response.data.data.accessToken);
+          // 後方互換性のため、アクセストークンをローカルストレージにも保存
+          if (response.data.data.accessToken) {
+            localStorage.setItem("accessToken", response.data.data.accessToken);
+            // リクエストヘッダーを更新
+            originalRequest.headers.Authorization = `Bearer ${response.data.data.accessToken}`;
+          }
           
-          // リクエストヘッダーを更新
-          originalRequest.headers.Authorization = `Bearer ${response.data.data.accessToken}`;
+          // 新しいトークンはCookieに自動保存されているので、
+          // 単にリクエストを再試行するだけでOK
           return axiosInstance(originalRequest);
         }
       } catch (refreshError) {
         console.error("トークンリフレッシュエラー:", refreshError);
-      }
-      
-      // 認証関連の情報をクリア
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("user");
-      
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
+        
+        // 認証関連の情報をクリア
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("user");
+        
+        // 認証関連の問題の場合はログインページにリダイレクト
+        if (typeof window !== "undefined") {
+          window.location.href = "/login";
+        }
       }
     }
     
@@ -112,11 +99,11 @@ axiosInstance.interceptors.response.use(
       
       try {
         // CSRFトークンを再取得
-        await fetchCsrfToken();
+        const token = await csrfManager.refreshToken();
         
-        if (csrfToken) {
+        if (token) {
           // 再取得したトークンでリクエストを再試行
-          originalRequest.headers['X-CSRF-Token'] = csrfToken;
+          originalRequest.headers['X-CSRF-Token'] = token;
           return axiosInstance(originalRequest);
         }
       } catch (csrfError) {
@@ -168,5 +155,8 @@ axiosInstance.interceptors.response.use(
 
 // アプリ起動時にCSRFトークンを取得
 if (typeof window !== 'undefined') {
-  fetchCsrfToken().catch(console.error);
+  csrfManager.getToken().catch(console.error);
 }
+
+// エクスポート
+export { csrfManager };

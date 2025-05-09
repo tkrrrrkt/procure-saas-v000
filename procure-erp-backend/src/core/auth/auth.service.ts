@@ -1,17 +1,22 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../database/prisma.service';
 import { LoginDto, TokenResponseDto } from './dto/auth.dto';
 import { RefreshTokenResponseDto } from './dto/refresh-token.dto';
 import * as bcrypt from 'bcrypt';
+import { TokenBlacklistService } from './token-blacklist.service';
 
 @Injectable()
 export class AuthService {
   private readonly useMockDb: boolean;
+  private readonly logger = new Logger(AuthService.name);
 
   constructor(
     private readonly jwtService: JwtService,
     private readonly prismaService: PrismaService,
+    private readonly configService: ConfigService,
+    private readonly tokenBlacklistService: TokenBlacklistService,
   ) {
     this.useMockDb = process.env.USE_MOCK_DB === 'true';
   }
@@ -19,7 +24,7 @@ export class AuthService {
   /**
    * Validate user credentials.
    */
-  async validateUser(username: string, password: string): Promise<{ id: string; username: string; role: string } | null> {
+  async validateUser(username: string, password: string): Promise<{ id: string; username: string; role: string; tenant_id?: string } | null> {
     try {
       let user = await this.prismaService.empAccount.findFirst({
         where: { emp_account_cd: username },
@@ -44,6 +49,7 @@ export class AuthService {
         id: user.emp_account_id,
         username: user.emp_account_cd,
         role: user.role,
+        tenant_id: user.tenant_id,
       };
     } catch (error) {
       // Log & swallow to prevent auth leakage
@@ -69,10 +75,26 @@ export class AuthService {
       };
     }
 
-    const payload = { sub: user.id, username: user.username, role: user.role };
+    const payload = { 
+      sub: user.id, 
+      username: user.username, 
+      role: user.role,
+      tenant_id: user.tenant_id 
+    };
 
-    const accessToken = this.jwtService.sign(payload, { expiresIn: '4h' });
-    const refreshToken = loginDto.rememberMe ? this.jwtService.sign(payload, { expiresIn: '30d' }) : null;
+    const accessToken = this.jwtService.sign(payload, { 
+      expiresIn: this.configService.get<string>('JWT_EXPIRATION', '4h') 
+    });
+    
+    const refreshToken = loginDto.rememberMe 
+      ? this.jwtService.sign(
+          { sub: user.id },
+          { 
+            secret: this.configService.get('JWT_REFRESH_SECRET'),
+            expiresIn: this.configService.get('JWT_REFRESH_EXPIRATION', '30d') 
+          }
+        ) 
+      : null;
 
     return {
       success: true,
@@ -87,23 +109,54 @@ export class AuthService {
    */
   async refreshToken(token: string): Promise<RefreshTokenResponseDto> {
     try {
-      const decoded = this.jwtService.verify(token);
-      const payload = { sub: decoded.sub, username: decoded.username, role: decoded.role };
+      // リフレッシュトークンを検証（JWT_REFRESH_SECRETで署名されている）
+      const decoded = this.jwtService.verify(token, {
+        secret: this.configService.get('JWT_REFRESH_SECRET'),
+      });
+      
+      // ユーザー情報を取得
+      const user = await this.prismaService.empAccount.findUnique({
+        where: { emp_account_id: decoded.sub },
+      });
 
-      const accessToken = this.jwtService.sign(payload, { expiresIn: '4h' });
-      const refreshToken = this.jwtService.sign(payload, { expiresIn: '30d' });
+      if (!user) {
+        throw new UnauthorizedException('無効なユーザーです');
+      }
+
+      // 新しいペイロードを作成
+      const payload = { 
+        sub: user.emp_account_id, 
+        username: user.emp_account_cd, 
+        role: user.role,
+        tenant_id: user.tenant_id
+      };
+
+      // 新しいトークンを発行
+      const accessToken = this.jwtService.sign(payload, { 
+        expiresIn: this.configService.get<string>('JWT_EXPIRATION', '4h') 
+      });
+      
+      const refreshToken = this.jwtService.sign(
+        { sub: user.emp_account_id },
+        { 
+          secret: this.configService.get('JWT_REFRESH_SECRET'),
+          expiresIn: this.configService.get('JWT_REFRESH_EXPIRATION', '30d') 
+        }
+      );
 
       return {
         success: true,
         accessToken,
         refreshToken,
         user: {
-          id: decoded.sub,
-          username: decoded.username,
-          role: decoded.role,
+          id: user.emp_account_id,
+          username: user.emp_account_cd,
+          role: user.role,
         },
       };
     } catch (error) {
+      this.logger.error(`トークンのリフレッシュに失敗しました: ${error.message}`);
+      
       return {
         success: false,
         message: 'リフレッシュトークンが無効です',
@@ -111,6 +164,25 @@ export class AuthService {
         accessToken: null,
         refreshToken: null,
         user: null,
+      };
+    }
+  }
+
+  /**
+   * Logout by blacklisting the token.
+   * This is a new method for token invalidation.
+   */
+  async logout(token: string) {
+    try {
+      // トークンをブラックリストに追加
+      await this.tokenBlacklistService.blacklistToken(token);
+      return { success: true };
+    } catch (error) {
+      this.logger.error(`ログアウト処理に失敗しました: ${error.message}`);
+      return { 
+        success: false, 
+        message: 'ログアウト処理に失敗しました',
+        code: 'LOGOUT_FAILED' 
       };
     }
   }

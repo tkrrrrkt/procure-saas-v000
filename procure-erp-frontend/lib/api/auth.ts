@@ -2,7 +2,7 @@
 
 import { apiClient } from './client';
 import { User, ApiResponse } from '../types/api';
-import axios from 'axios';  // axiosをインポート
+import axios from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
@@ -25,6 +25,8 @@ export const authApi = {
     });
     
     if (response.status === 'success' && response.data) {
+      // アクセストークンとリフレッシュトークンはCookieに自動保存される
+      // ただし後方互換性のため、レスポンスからもアクセス可能
       return {
         user: response.data.user,
         accessToken: response.data.accessToken || null,
@@ -39,20 +41,22 @@ export const authApi = {
     };
   },
   
-  async refreshToken(refreshTokenValue: string): Promise<LoginResponse> {
+  async refreshToken(refreshTokenValue?: string): Promise<LoginResponse> {
+    // リフレッシュトークンはCookieにすでに保存されている場合がほとんど
+    // ただし後方互換性のため、パラメータからも受け付ける
+    const requestBody = refreshTokenValue ? { refreshToken: refreshTokenValue } : {};
+    
     const response = await apiClient.post<{
       user: User;
       accessToken: string;
-      refreshToken: string;
-    }>('/auth/refresh', {
-      refreshToken: refreshTokenValue,
-    });
+      refreshToken?: string;
+    }>('/auth/refresh', requestBody);
     
     if (response.status === 'success' && response.data) {
       return {
         user: response.data.user,
         accessToken: response.data.accessToken,
-        refreshToken: response.data.refreshToken,
+        refreshToken: response.data.refreshToken || null,
       };
     }
     
@@ -64,7 +68,15 @@ export const authApi = {
   },
   
   async logout(): Promise<void> {
+    // トークンはCookieにあるので自動的に送信される
+    // バックエンドでトークンがブラックリストに追加され、Cookieも削除される
     await apiClient.post<void>('/auth/logout');
+    
+    // 後方互換性のため、ローカルストレージも消去
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('user');
+    }
   },
   
   async checkAuth(): Promise<boolean> {
@@ -73,6 +85,25 @@ export const authApi = {
       return response.status === 'success' && response.data?.authenticated === true;
     } catch (error) {
       return false;
+    }
+  },
+  
+  /**
+   * ユーザープロファイル情報を取得
+   * JWTAuthGuardで保護されたエンドポイントを使用
+   */
+  async getProfile(): Promise<User | null> {
+    try {
+      // トークンはCookieから自動送信される
+      const response = await apiClient.get<{ user: User }>('/auth/profile');
+      
+      if (response.status === 'success' && response.data?.user) {
+        return response.data.user;
+      }
+      return null;
+    } catch (error) {
+      console.error('プロファイル取得エラー:', error);
+      return null;
     }
   }
 };

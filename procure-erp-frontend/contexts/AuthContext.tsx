@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
-import { authApi } from '@/lib/api/auth';          // ← 変更
+import { authApi } from '@/lib/api/auth';
 
 export interface User {
   id: string;
@@ -27,8 +27,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const storedUser    = localStorage.getItem('user');
-        const accessToken   = localStorage.getItem('accessToken');
+        // まず、サーバーサイドのセッション/クッキーベースの認証をチェック
+        const isAuthenticated = await authApi.checkAuth();
+        
+        if (isAuthenticated) {
+          // 認証済みならプロファイル情報を取得
+          const profileData = await authApi.getProfile();
+          if (profileData) {
+            setUser(profileData);
+            // ローカルストレージも更新して後方互換性を維持
+            localStorage.setItem('user', JSON.stringify(profileData));
+            return;
+          }
+        }
+        
+        // Cookieベース認証に失敗した場合、レガシーフローを試行
+        const storedUser = localStorage.getItem('user');
+        const accessToken = localStorage.getItem('accessToken');
 
         if (storedUser && accessToken) {
           setUser(JSON.parse(storedUser));
@@ -37,6 +52,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         const refreshToken = localStorage.getItem('refreshToken');
         if (refreshToken) {
+          // リフレッシュトークンによる再認証
           const result = await authApi.refreshToken(refreshToken);
           if (result.user) {
             persistAuth(result);
@@ -44,7 +60,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
         }
 
-        clearAuthData(); // 失敗時
+        clearAuthData(); // 全ての認証フロー失敗時
       } catch (err) {
         console.error('認証初期化エラー:', err);
         clearAuthData();
@@ -60,7 +76,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const persistAuth = (res: { user: User; accessToken: string | null; refreshToken: string | null }) => {
     setUser(res.user);
     localStorage.setItem('user', JSON.stringify(res.user));
-    if (res.accessToken)  localStorage.setItem('accessToken',  res.accessToken);
+    
+    // アクセストークンとリフレッシュトークンはCookieにも保存されるが、
+    // 後方互換性のためにローカルストレージにも保存
+    if (res.accessToken) localStorage.setItem('accessToken', res.accessToken);
     if (res.refreshToken) localStorage.setItem('refreshToken', res.refreshToken);
   };
 
@@ -98,10 +117,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const handleLogout = async (): Promise<void> => {
     try {
       setLoading(true);
+      // ログアウトAPIを呼び出し（サーバー側でトークンを無効化し、Cookieを削除）
       await authApi.logout();
     } catch (err) {
       console.error('ログアウトエラー:', err);
     } finally {
+      // ローカルストレージのデータも削除
       clearAuthData();
       setLoading(false);
     }

@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Req, Res, Logger, Get } from '@nestjs/common';
+import { Controller, Post, Body, Req, Res, Logger, Get, UseGuards } from '@nestjs/common';
 import { Response, Request } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/auth.dto';
@@ -14,6 +14,8 @@ import {
   ApiCookieAuth 
 } from '@nestjs/swagger';
 import { PrivilegedOperation } from '../../common/decorators/privileged-operation.decorator';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { ConfigService } from '@nestjs/config';
 
 /**
  * Authentication controller
@@ -25,7 +27,10 @@ import { PrivilegedOperation } from '../../common/decorators/privileged-operatio
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {}
 
   /**
    * Login endpoint
@@ -98,38 +103,55 @@ export class AuthController {
         };
       }
 
-      // Cookie 設定 - アクセストークン
-      response.cookie('token', result.accessToken, {
+      // 環境変数から取得
+      const isProduction = this.configService.get('NODE_ENV') === 'production';
+      const accessTokenExpiry = this.configService.get('JWT_EXPIRATION', '4h');
+      // 時間単位を秒に変換（例: "4h" → 14400秒）
+      const expiryInSeconds = this.parseExpiry(accessTokenExpiry);
+      const maxAge = expiryInSeconds * 1000; // ミリ秒に変換
+
+      // Cookie 設定 - アクセストークン（新しい名前）
+      response.cookie('access_token', result.accessToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: isProduction,
         sameSite: 'strict',
         path: '/',  // アプリケーション全体でアクセス可能
-        maxAge: loginDto.rememberMe
-          ? 4 * 60 * 60 * 1000  // 4時間（JWTの有効期限と合わせる）
-          : 4 * 60 * 60 * 1000, // 4時間
+        maxAge: maxAge,
+      });
+
+      // 後方互換性のため、古い名前のCookieも設定
+      response.cookie('token', result.accessToken, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'strict',
+        path: '/',
+        maxAge: maxAge,
       });
 
       if (result.refreshToken) {
-        // リフレッシュトークンのCookie設定を強化
+        // リフレッシュトークンの有効期限を取得
+        const refreshExpiry = this.configService.get('JWT_REFRESH_EXPIRATION', '30d');
+        const refreshExpiryInSeconds = this.parseExpiry(refreshExpiry);
+        
+        // リフレッシュトークンのCookie設定
         response.cookie('refresh_token', result.refreshToken, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === 'production' || true, // 開発環境でもSecure推奨
+          secure: isProduction,
           sameSite: 'strict',
           path: '/api/auth',  // 認証エンドポイントのみに制限
-          maxAge: 30 * 24 * 60 * 60 * 1000, // 30日
+          maxAge: refreshExpiryInSeconds * 1000, // ミリ秒に変換
         });
       }
 
       this.logger.log(`Login succeeded for user: ${loginDto.username}`);
       
-      // レスポンスからリフレッシュトークンを削除（セキュリティ強化）
-      // クライアントはCookieから取得するため、レスポンスボディに含める必要はない
+      // 後方互換性のためにトークンをレスポンスボディにも含める
       return {
         status: 'success',
         data: {
           user: result.user,
           accessToken: result.accessToken,
-          // リフレッシュトークンをレスポンスボディから除外
+          // refreshToken: result.refreshToken // セキュリティのため除外
         },
       };
     } catch (error) {
@@ -229,27 +251,46 @@ export class AuthController {
         };
       }
 
-      // アクセストークンのCookie設定
-      response.cookie('token', result.accessToken, {
+      // 環境変数から取得
+      const isProduction = this.configService.get('NODE_ENV') === 'production';
+      const accessTokenExpiry = this.configService.get('JWT_EXPIRATION', '4h');
+      const expiryInSeconds = this.parseExpiry(accessTokenExpiry);
+      const maxAge = expiryInSeconds * 1000; // ミリ秒に変換
+
+      // アクセストークンのCookie設定 - 新しい名前
+      response.cookie('access_token', result.accessToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production' || true,
+        secure: isProduction,
         sameSite: 'strict',
         path: '/',
-        maxAge: 4 * 60 * 60 * 1000, // 4時間
+        maxAge: maxAge,
+      });
+
+      // 後方互換性のため、古い名前のCookieも設定
+      response.cookie('token', result.accessToken, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'strict',
+        path: '/',
+        maxAge: maxAge,
       });
 
       if (result.refreshToken) {
-        // リフレッシュトークンのCookie設定を強化
+        // リフレッシュトークンの有効期限を取得
+        const refreshExpiry = this.configService.get('JWT_REFRESH_EXPIRATION', '30d');
+        const refreshExpiryInSeconds = this.parseExpiry(refreshExpiry);
+        
+        // リフレッシュトークンのCookie設定
         response.cookie('refresh_token', result.refreshToken, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === 'production' || true,
+          secure: isProduction,
           sameSite: 'strict',
           path: '/api/auth',  // 認証エンドポイントのみに制限
-          maxAge: 30 * 24 * 60 * 60 * 1000, // 30日
+          maxAge: refreshExpiryInSeconds * 1000, // ミリ秒に変換
         });
       }
 
-      // リフレッシュトークンをレスポンスボディから除外
+      // 後方互換性のためにトークンをレスポンスボディにも含める
       return {
         status: 'success',
         data: {
@@ -271,11 +312,11 @@ export class AuthController {
   }
 
   /**
-   * Logout endpoint – clears authentication cookies.
+   * Logout endpoint – invalidates tokens and clears authentication cookies.
    * レート制限を適用しない
    */
-  @ApiOperation({ summary: 'ログアウト', description: '認証用Cookieを削除してログアウト状態にします' })
-  @ApiCookieAuth('token')
+  @ApiOperation({ summary: 'ログアウト', description: 'トークンを無効化し、認証用Cookieを削除してログアウト状態にします' })
+  @ApiCookieAuth('access_token')
   @SwaggerResponse({ 
     status: 200, 
     description: 'ログアウト成功', 
@@ -296,32 +337,62 @@ export class AuthController {
   @SkipThrottle()
   @Post('logout')
   async logout(
+    @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ): Promise<ApiResponse<{ message: string }>> {
-    // トークンCookieを削除（すべてのパラメータを一致させる）
-    response.clearCookie('token', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production' || true,
-      sameSite: 'strict',
-      path: '/',
-    });
-    
-    // リフレッシュトークンCookieを削除（パスを指定）
-    response.clearCookie('refresh_token', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production' || true,
-      sameSite: 'strict',
-      path: '/api/auth',
-    });
+    try {
+      // 現在のトークンを取得（新旧両方のCookie名に対応）
+      const token = request.cookies['access_token'] || request.cookies['token'];
+      
+      // トークンが存在する場合、ブラックリストに追加（無効化）
+      if (token) {
+        await this.authService.logout(token);
+        this.logger.log('Token blacklisted successfully');
+      }
 
-    this.logger.log('User logged out');
+      const isProduction = this.configService.get('NODE_ENV') === 'production';
 
-    return {
-      status: 'success',
-      data: {
-        message: 'ログアウトしました',
-      },
-    };
+      // トークンCookieを削除（新旧両方のCookie名に対応）
+      response.clearCookie('access_token', {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'strict',
+        path: '/',
+      });
+      
+      // 後方互換性のため、古い名前のCookieも削除
+      response.clearCookie('token', {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'strict',
+        path: '/',
+      });
+      
+      // リフレッシュトークンCookieを削除
+      response.clearCookie('refresh_token', {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'strict',
+        path: '/api/auth',
+      });
+
+      this.logger.log('User logged out');
+
+      return {
+        status: 'success',
+        data: {
+          message: 'ログアウトしました',
+        },
+      };
+    } catch (error) {
+      this.logger.error('Logout error', error instanceof Error ? error.stack : undefined);
+      return {
+        status: 'success', // エラーでもユーザーにはログアウト成功と表示
+        data: {
+          message: 'ログアウトしました',
+        },
+      };
+    }
   }
 
   /**
@@ -367,9 +438,8 @@ export class AuthController {
   async checkAuth(
     @Req() request: Request,
   ): Promise<ApiResponse<{ authenticated: boolean }>> {
-    // JWTストラテジーで認証されていればtrueが返る
-    // 実際の実装ではJWTGuardを使用する
-    const isAuthenticated = !!request.cookies['token'];
+    // 両方のCookie名をチェック（新旧互換性）
+    const isAuthenticated = !!request.cookies['access_token'] || !!request.cookies['token'];
 
     return {
       status: 'success',
@@ -377,5 +447,83 @@ export class AuthController {
         authenticated: isAuthenticated
       },
     };
+  }
+
+  /**
+   * Get user profile endpoint
+   */
+  @ApiOperation({ summary: 'ユーザープロファイル取得', description: '認証済みユーザーの詳細情報を取得します' })
+  @ApiBearerAuth('access-token')
+  @SwaggerResponse({ 
+    status: 200, 
+    description: 'プロファイル取得成功', 
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', example: 'success' },
+        data: { 
+          type: 'object',
+          properties: {
+            user: { 
+              type: 'object', 
+              properties: {
+                id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+                username: { type: 'string', example: 'user123' },
+                role: { type: 'string', example: 'USER' }
+              }
+            }
+          }
+        }
+      }
+    }
+  })
+  @SwaggerResponse({ 
+    status: 401, 
+    description: '未認証', 
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', example: 'error' },
+        error: { 
+          type: 'object',
+          properties: {
+            code: { type: 'string', example: 'UNAUTHORIZED' },
+            message: { type: 'string', example: '認証されていません' }
+          }
+        }
+      }
+    }
+  })
+  @UseGuards(JwtAuthGuard)
+  @SkipThrottle()
+  @Get('profile')
+  getProfile(@Req() req) {
+    return {
+      status: 'success',
+      data: { user: req.user },
+    };
+  }
+
+  /**
+   * JWT有効期限文字列をパースして秒数に変換
+   * 例: "1h" -> 3600, "2d" -> 172800
+   */
+  private parseExpiry(expiry: string): number {
+    if (!expiry) return 14400; // デフォルト4時間（秒）
+    
+    const match = expiry.match(/^(\d+)([smhdw])$/);
+    if (!match) return 14400; // デフォルト4時間（秒）
+    
+    const value = parseInt(match[1], 10);
+    const unit = match[2];
+    
+    switch (unit) {
+      case 's': return value; // 秒
+      case 'm': return value * 60; // 分→秒
+      case 'h': return value * 60 * 60; // 時間→秒
+      case 'd': return value * 24 * 60 * 60; // 日→秒
+      case 'w': return value * 7 * 24 * 60 * 60; // 週→秒
+      default: return 14400; // デフォルト4時間（秒）
+    }
   }
 }
