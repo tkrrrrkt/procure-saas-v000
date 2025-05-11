@@ -14,7 +14,7 @@ export const axiosInstance = axios.create({
   withCredentials: true, // クッキーを送受信するために必要
 });
 
-// リクエストインターセプター
+// リクエストインターセプター - 強化版
 axiosInstance.interceptors.request.use(
   async (config) => {
     // 後方互換性のため、localStorage からもトークンを取得
@@ -34,22 +34,72 @@ axiosInstance.interceptors.request.use(
       }
     }
     
-    // 非GETリクエストの場合のみCSRFトークンを設定
-    if (config.method !== 'get') {
+    // CSRFトークン設定 - すべてのリクエスト(GET含む)に対応し、一部エンドポイントを除外
+    // GET以外のリクエストと、一部のGETリクエスト（データ取得だが特権操作）はCSRFトークンを設定
+    const isCsrfRequired = 
+      config.method !== 'get' || 
+      // 特権操作を含むGETリクエスト
+      (config.url?.includes('/auth/mfa/setup')) ||
+      (config.url?.includes('/auth/mfa/status'));
+      
+    if (isCsrfRequired && config.url !== '/csrf/token') { // CSRF取得リクエスト自体には不要
       try {
-        // CSRFマネージャーからトークンを取得
-        const token = await csrfManager.getToken();
+        // 最大3回の再試行
+        let token = null;
+        let retryCount = 0;
+        
+        while (!token && retryCount < 3) {
+          // CSRFマネージャーからトークンを取得
+          token = await csrfManager.getToken();
+          
+          if (!token) {
+            retryCount++;
+            if (retryCount < 3) {
+              console.warn(`CSRFトークン取得再試行 (${retryCount}/3)...`);
+              await new Promise(resolve => setTimeout(resolve, 200)); // 200ms待機
+              // トークンの強制再取得
+              await csrfManager.refreshToken();
+            }
+          }
+        }
         
         if (token) {
           config.headers['X-CSRF-Token'] = token;
+          
+          // デバッグ用ログ（開発環境のみ）
+          if (process.env.NODE_ENV !== 'production' && config.method !== 'get') {
+            console.log(`CSRFトークンをヘッダーに設定: ${config.method?.toUpperCase()} ${config.url}, Token: ${token.substring(0, 8)}...`);
+          }
         } else {
-          if (process.env.NODE_ENV !== 'production') {
-            console.warn('CSRFトークンが設定できませんでした');
+          console.warn(`CSRFトークンが設定できませんでした: ${config.method?.toUpperCase()} ${config.url}`, csrfManager.getDebugInfo());
+          
+          // 最終手段：Cookieから直接取得を試みる
+          if (typeof document !== 'undefined') {
+            const cookies = document.cookie.split(';');
+            for (const cookie of cookies) {
+              const [name, value] = cookie.trim().split('=');
+              if (name === 'csrf_token' && value) {
+                console.log('直接Cookieから緊急取得したCSRFトークンを使用:', value.substring(0, 8) + '...');
+                config.headers['X-CSRF-Token'] = value;
+                break;
+              }
+            }
           }
         }
       } catch (error) {
-        if (process.env.NODE_ENV !== 'production') {
-          console.error('CSRFトークン取得エラー:', error);
+        console.error('CSRFトークン取得エラー:', error);
+        
+        // エラーが発生したときのフォールバック
+        if (typeof document !== 'undefined') {
+          const cookies = document.cookie.split(';');
+          for (const cookie of cookies) {
+            const [name, value] = cookie.trim().split('=');
+            if (name === 'csrf_token' && value) {
+              console.log('エラー後にCookieから緊急取得したCSRFトークンを使用:', value.substring(0, 8) + '...');
+              config.headers['X-CSRF-Token'] = value;
+              break;
+            }
+          }
         }
       }
     }
@@ -201,12 +251,55 @@ axiosInstance.interceptors.response.use(
   }
 );
 
-// アプリ起動時にCSRFトークンを取得
+// アプリ起動時にCSRFトークンを取得 - 強化版
 if (typeof window !== 'undefined') {
-  csrfManager.getToken().catch(error => {
-    if (process.env.NODE_ENV !== 'production') {
-      console.error('アプリ起動時のCSRFトークン取得エラー:', error);
+  // 初期ロード時だけでなく、トークンが確実に取得できるよう複数回試行
+  const initCsrfToken = async () => {
+    console.log('アプリ起動時のCSRFトークン初期化を開始...');
+    let retryCount = 0;
+    const maxRetries = 3;
+    
+    while (retryCount < maxRetries) {
+      try {
+        const token = await csrfManager.getToken();
+        if (token) {
+          console.log(`アプリ起動時のCSRFトークン初期化成功 (試行: ${retryCount + 1}/${maxRetries})`);
+          return;
+        }
+        
+        console.warn(`アプリ起動時のCSRFトークン取得失敗 (試行: ${retryCount + 1}/${maxRetries})`);
+        retryCount++;
+        
+        if (retryCount < maxRetries) {
+          console.log(`${500 * retryCount}ms待機後に再試行します...`);
+          await new Promise(resolve => setTimeout(resolve, 500 * retryCount));
+        }
+      } catch (error) {
+        console.error(`アプリ起動時のCSRFトークン取得エラー (試行: ${retryCount + 1}/${maxRetries}):`, error);
+        retryCount++;
+        
+        if (retryCount < maxRetries) {
+          console.log(`${500 * retryCount}ms待機後に再試行します...`);
+          await new Promise(resolve => setTimeout(resolve, 500 * retryCount));
+        }
+      }
     }
+    
+    console.error(`アプリ起動時のCSRFトークン初期化に${maxRetries}回失敗しました。ページの再読み込みをお試しください。`);
+  };
+  
+  // ページロード完了後に初期化を実行（リソース読み込み優先）
+  if (document.readyState === 'complete') {
+    initCsrfToken();
+  } else {
+    window.addEventListener('load', initCsrfToken);
+  }
+  
+  // さらに、フォーカス再取得時（他のページから戻った場合など）にもトークンを更新
+  window.addEventListener('focus', () => {
+    csrfManager.refreshToken().catch(error => {
+      console.error('フォーカス時のCSRFトークン更新エラー:', error);
+    });
   });
 }
 

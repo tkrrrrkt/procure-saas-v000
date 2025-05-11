@@ -110,11 +110,11 @@ export class CsrfMiddleware implements NestMiddleware {
       'api-docs'
     ];
     
-    // MFA関連の除外パス（認証フロー関連のみ）
+    // MFA関連の除外パス（認証フロー関連のみ - 最小限に最適化）
+    // 初回認証時のMFA検証のみを除外（ログイン→MFA検証フロー）
     const mfaExemptPaths = [
-      'auth/mfa/verify',   // MFAトークン検証（認証プロセスの一部）
-      'auth/mfa/recovery', // リカバリーコード検証（認証プロセスの一部）
-      'auth/mfa/status',   // MFA状態確認（情報取得のみ）
+      'auth/mfa/verify',   // MFAトークン検証（認証プロセスの一部）- 初回ログイン時に必要
+      // 'auth/mfa/recovery' と 'auth/mfa/status' は除外せず、CSRF保護を適用
     ];
     
     // 完全な除外パスリスト
