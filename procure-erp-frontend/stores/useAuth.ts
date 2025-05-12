@@ -1,7 +1,7 @@
 // procure-erp-frontend/stores/useAuth.ts
 "use client";
 
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { useAuthStore, User } from "./authStore";
 import { authApi } from "@/lib/api/auth";
 import { mfaApi } from "@/lib/api/mfa";
@@ -23,30 +23,62 @@ export interface UseAuthReturn {
 }
 
 /**
- * 認証機能を提供するカスタムフック
+ * 認証機能を提供するカスタムフック - Cookie認証に統一
  * アプリケーション内で認証関連の処理を行う場合は、必ずこのフックを使用してください。
- * 内部的にはZustandのuseAuthStoreを使用していますが、直接useAuthStoreを使用せず、
- * このフックを通じてアクセスすることで、認証ロジックの一元管理を実現します。
  */
 export const useAuth = (): UseAuthReturn => {
   // 内部ストアからステートとアクションを取得
   const setUser = useAuthStore((s) => s.setUser);
   const setLoading = useAuthStore((s) => s.setLoading);
+  const setMfaRequired = useAuthStore((s) => s.setMfaRequired);
   const user = useAuthStore((s) => s.user);
   const loading = useAuthStore((s) => s.loading);
-  const [mfaRequired, setMfaRequired] = useState(false);
+  const mfaRequired = useAuthStore((s) => s.mfaRequired);
+
+  /**
+   * アプリ初期化時に認証状態を確認
+   * このフックが最初に使用されたときに一度だけ実行される
+   */
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        setLoading(true);
+        // APIを呼び出して現在の認証状態を取得
+        const isAuthenticated = await authApi.checkAuth();
+        
+        if (isAuthenticated) {
+          const userData = await authApi.getProfile();
+          if (userData) {
+            setUser(userData);
+          } else {
+            setUser(null);
+          }
+        } else {
+          setUser(null);
+        }
+      } catch (err) {
+        console.error('認証初期化エラー:', err);
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initAuth();
+  }, []);
 
   /**
    * ログイン処理 - API呼び出しと状態更新
+   * HTTPOnly Cookie認証に統一
    */
   const login = async (username: string, password: string, rememberMe: boolean): Promise<{ success: boolean; requireMfa?: boolean }> => {
     try {
       setLoading(true);
       const res = await authApi.login(username, password, rememberMe);
 
-      if (res.user && res.accessToken) {
-        // 認証情報を保存
-        setUser(res.user, res.accessToken);
+      if (res.user) {
+        // 認証情報を保存 (アクセストークンはCookieのみで管理)
+        setUser(res.user);
         
         // MFAが必要かチェック
         if (process.env.NODE_ENV !== 'production') {
@@ -124,19 +156,20 @@ export const useAuth = (): UseAuthReturn => {
   
   /**
    * ログアウト処理 - 状態クリアとAPI呼び出し
+   * Cookie認証に統一
    */
   const handleLogout = () => {
     // MFAトークンのクリア
     clearMfaToken();
     setMfaRequired(false);
     
-    // ログアウトAPIの呼び出し
+    // ログアウトAPIの呼び出し (サーバー側でCookieを削除)
     authApi.logout().catch(err => {
       console.error('ログアウトAPIエラー:', err);
     });
     
     // 状態をクリア
-    setUser(null, null);
+    setUser(null);
   };
 
   return { 

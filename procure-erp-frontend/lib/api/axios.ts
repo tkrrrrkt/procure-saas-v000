@@ -14,15 +14,10 @@ export const axiosInstance = axios.create({
   withCredentials: true, // クッキーを送受信するために必要
 });
 
-// リクエストインターセプター - 強化版
+// リクエストインターセプター - Cookie認証に統一版
 axiosInstance.interceptors.request.use(
   async (config) => {
-    // 後方互換性のため、localStorage からもトークンを取得
-    // HttpOnly Cookie が優先されるが、古いコードとの互換性のため維持
-    const token = localStorage.getItem("accessToken");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    // トークンはCookieから自動送信されるので、手動で設定する必要はない
     
     // MFAトークンがあれば、リクエストヘッダーに追加（セキュリティのためsessionStorageのみを使用）
     const mfaToken = sessionStorage.getItem("mfaToken");
@@ -111,7 +106,7 @@ axiosInstance.interceptors.request.use(
   }
 );
 
-// レスポンスインターセプター
+// レスポンスインターセプター - Cookie認証に統一版
 axiosInstance.interceptors.response.use(
   (response) => {
     return response;
@@ -144,18 +139,11 @@ axiosInstance.interceptors.response.use(
       
       try {
         // リフレッシュトークンはCookieから自動送信されるので、リクエストボディは空でOK
-        const response = await axios.post<ApiResponse<{accessToken: string}>>(`${API_URL}/auth/refresh`, {}, {
+        const response = await axios.post<ApiResponse<{}>>(`${API_URL}/auth/refresh`, {}, {
           withCredentials: true // クッキーを送受信するために必要
         });
         
-        if (response.data.status === 'success' && response.data.data) {
-          // 後方互換性のため、アクセストークンをローカルストレージにも保存
-          if (response.data.data.accessToken) {
-            localStorage.setItem("accessToken", response.data.data.accessToken);
-            // リクエストヘッダーを更新
-            originalRequest.headers.Authorization = `Bearer ${response.data.data.accessToken}`;
-          }
-          
+        if (response.data.status === 'success') {
           // 新しいトークンはCookieに自動保存されているので、
           // 単にリクエストを再試行するだけでOK
           return axiosInstance(originalRequest);
@@ -165,9 +153,6 @@ axiosInstance.interceptors.response.use(
           console.error("トークンリフレッシュエラー:", refreshError);
         }
         
-        // 認証関連の情報をクリア
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("user");
         // MFAトークンはsessionStorageからのみクリア
         sessionStorage.removeItem("mfaToken");
         if (process.env.NODE_ENV !== 'production') {

@@ -1,3 +1,6 @@
+// ⚠️ 注意: このファイルは廃止予定です。
+// 新しい認証システムでは、/stores/useAuth.ts を使用してください。
+
 'use client';
 
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
@@ -19,7 +22,11 @@ export interface AuthContextType {
 
 export const AuthContext = createContext<AuthContextType | null>(null);
 
+// ⚠️ WARNING: このコンポーネントは未使用です。
+// 互換性のために維持していますが、将来的に削除される予定です。
+// 新しいコンポーネントでは /stores/useAuth.ts を使用してください。
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  console.warn('AuthContext.tsx は非推奨です。/stores/useAuth.ts を使用してください。');
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 

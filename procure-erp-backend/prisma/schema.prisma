@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = "postgresql://postgres:!Ktkrr0714@localhost:5432/procure_erp?schema=v000"
+  url      = "postgresql://postgres:!Ktkrr0714@localhost:5433/procure_erp?schema=v000"
   //url = env("DATABASE_URL")
 }
 

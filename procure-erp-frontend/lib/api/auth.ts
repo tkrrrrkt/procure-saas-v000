@@ -8,17 +8,13 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
 export interface LoginResponse {
   user: User | null;
-  accessToken: string | null;
-  refreshToken: string | null;
-  requireMfa?: boolean; // ← 新しいプロパティを追加
+  requireMfa?: boolean;
 }
 
 export const authApi = {
   async login(username: string, password: string, rememberMe: boolean): Promise<LoginResponse> {
     const response = await apiClient.post<{
       user: User;
-      accessToken?: string;
-      refreshToken?: string;
       requireMfa?: boolean;
     }>('/auth/login', {
       username,
@@ -28,58 +24,34 @@ export const authApi = {
     
     if (response.status === 'success' && response.data) {
       // アクセストークンとリフレッシュトークンはCookieに自動保存される
-      // ただし後方互換性のため、レスポンスからもアクセス可能
       return {
         user: response.data.user,
-        accessToken: response.data.accessToken || null,
-        refreshToken: response.data.refreshToken || null,
-        requireMfa: response.data.requireMfa, // MFA要求フラグを追加
+        requireMfa: response.data.requireMfa, // MFA要求フラグ
       };
     }
     
     return {
       user: null,
-      accessToken: null,
-      refreshToken: null,
     };
   },
   
-  async refreshToken(refreshTokenValue?: string): Promise<LoginResponse> {
-    // リフレッシュトークンはCookieにすでに保存されている場合がほとんど
-    // ただし後方互換性のため、パラメータからも受け付ける
-    const requestBody = refreshTokenValue ? { refreshToken: refreshTokenValue } : {};
-    
-    const response = await apiClient.post<{
-      user: User;
-      accessToken: string;
-      refreshToken?: string;
-    }>('/auth/refresh', requestBody);
-    
-    if (response.status === 'success' && response.data) {
-      return {
-        user: response.data.user,
-        accessToken: response.data.accessToken,
-        refreshToken: response.data.refreshToken || null,
-      };
+  async refreshToken(): Promise<boolean> {
+    // リフレッシュトークンはCookieにあるので自動送信される
+    try {
+      const response = await apiClient.post<{
+        user: User;
+      }>('/auth/refresh', {});
+      
+      return response.status === 'success' && !!response.data;
+    } catch (error) {
+      return false;
     }
-    
-    return {
-      user: null,
-      accessToken: null,
-      refreshToken: null,
-    };
   },
   
   async logout(): Promise<void> {
     // トークンはCookieにあるので自動的に送信される
     // バックエンドでトークンがブラックリストに追加され、Cookieも削除される
     await apiClient.post<void>('/auth/logout');
-    
-    // 後方互換性のため、ローカルストレージも消去
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('user');
-    }
   },
   
   async checkAuth(): Promise<boolean> {

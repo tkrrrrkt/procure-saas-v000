@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
 
 export interface User {
   id: string
@@ -7,45 +6,36 @@ export interface User {
   role: string
 }
 
-// 状態管理に特化したストア定義
-interface AuthState {
-  user: User | null
-  accessToken: string | null
-  loading: boolean
-  // 内部状態管理用の基本的なアクション
-  setUser: (user: User | null, accessToken: string | null) => void
-  setLoading: (loading: boolean) => void
-}
-
 /**
- * 認証状態を管理する内部Zustandストア
+ * 認証状態を管理する内部ストア
+ * Cookie認証に統一し、メモリ内のみで状態管理します
  * 注意: このストアは直接使用せず、useAuth() フックを通じてアクセスしてください
  */
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
-      user: null,
-      accessToken: null,
+interface AuthState {
+  user: User | null
+  loading: boolean
+  mfaRequired: boolean
+  // 内部状態管理用の基本的なアクション
+  setUser: (user: User | null) => void
+  setLoading: (loading: boolean) => void
+  setMfaRequired: (required: boolean) => void
+}
+
+export const useAuthStore = create<AuthState>()((set) => ({
+  user: null,
+  loading: false,
+  mfaRequired: false,
+
+  // シンプル化したユーザー状態設定
+  setUser: (user) =>
+    set({
+      user,
       loading: false,
-
-      // より明示的な名前に変更し、ロジックを単純化
-      setUser: (user, accessToken) =>
-        set({
-          user,
-          accessToken,
-          loading: false,
-        }),
-
-      // loading状態の設定のみ
-      setLoading: (loading) => set({ loading }),
     }),
-    {
-      name: 'auth-storage',                            // LocalStorage のキー
-      storage: createJSONStorage(() => localStorage), // LocalStorage に永続化
-      partialize: (s) => ({
-        user: s.user,
-        accessToken: s.accessToken,
-      }),
-    },
-  ),
-)
+
+  // loading状態の設定のみ
+  setLoading: (loading) => set({ loading }),
+  
+  // MFA要求状態の設定
+  setMfaRequired: (mfaRequired) => set({ mfaRequired }),
+}))
